@@ -5,8 +5,8 @@ from agno.tools import Toolkit
 from neo4j import GraphDatabase, basic_auth
 from neo4j.graph import Node, Relationship, Path
 from neo4j.time import DateTime
-from neo4j.exceptions import ClientError
-from neo4j_haystack.client import Neo4jClient, Neo4jClientConfig, Neo4jRecord
+from neo4j.exceptions import ClientError, CypherSyntaxError
+from neo4j_haystack.client import Neo4jClient, Neo4jClientConfig
 from haystack.components.embedders import SentenceTransformersTextEmbedder
 from neo4j_haystack.client.neo4j_client import DEFAULT_NEO4J_DATABASE
 from tabulate import tabulate, TableFormat, Line
@@ -27,23 +27,14 @@ class Neo4jTools(Toolkit):
         with_header_hide=None,
     )
     name = "neo4j_tools"
-    instructions = dedent(
-        """\
-        You have following tools:
-        1. If you need to get nodes which are similar with user query, use the `get_similar_node` tool.
-        2. If you need more meta information about the database, use the `show_metadata` tool.
-        3. If you need more information about the indexes, use the `show_indexes` tool.
-        4. If you need to execute the Cypher statement, use the `execute_query` tool.\
-    """
-    )
 
     def __init__(
         self,
         user: str,
         password: str,
         name: str = name,
-        instructions: Optional[str] = instructions,
-        add_instructions: bool = True,
+        instructions: Optional[str] = None,
+        add_instructions: bool = False,
         cache_results: bool = False,
         cache_ttl: int = 3600,
         cache_dir: Optional[str] = None,
@@ -86,6 +77,7 @@ class Neo4jTools(Toolkit):
         self.register(self.get_similar_node)
         self.register(self.show_metadata)
         self.register(self.show_indexes)
+        self.register(self.check_cypher_syntax)
         self.register(self.execute_query)
 
     def show_indexes(self) -> str:
@@ -207,21 +199,42 @@ class Neo4jTools(Toolkit):
         formatted_records, _, _ = self._format_record_json(data=sorted_records)
         return json.dumps(obj=formatted_records, ensure_ascii=False, indent=2)
 
+    def check_cypher_syntax(self, cypher: str) -> str:
+        """
+        Checks the syntax of a given Cypher query string.
+
+        Args:
+            cypher (str): The Cypher query string to be validated.
+
+        Returns:
+            str: If the query contains a syntax error, returns the error message.
+                 Otherwise, returns "No Cypher Syntax Error".
+        """
+        try:
+            self._execute_query(query=cypher, parameters=None)
+        except CypherSyntaxError as e:
+            return e.message
+        return "No Cypher Syntax Error"
+
     def execute_query(self, query: str, parameters=None) -> str:
-        """Execute a Cypher query and return the results as either a DOT graph representation or a JSON string.
+        """Execute a Cypher query and return the results as a formatted string (JSON or graph source).
 
         Args:
             query (str): The Cypher query to execute.
-            parameters (dict, optional): Optional parameters for parameterized queries. Defaults to None.
+            parameters (dict, optional): Optional parameters for the query. Defaults to None.
 
         Returns:
             str:
-                - If the results contain graph data, returns a DOT-formatted string (with escaped quotes replaced by single quotes).
-                - If no graph data is present, returns a JSON-formatted string of the query results.
+                - If the query results contain a graph (relationships), returns the graph source (e.g., DOT format).
+                - If the query results are plain records, returns them as a JSON-formatted string.
+                - If there's a syntax error, returns the error message.
         """
-        formatted_records, digraph = self._execute_query(
-            query=query, parameters=parameters
-        )
+        try:
+            formatted_records, digraph = self._execute_query(
+                query=query, parameters=parameters
+            )
+        except CypherSyntaxError as e:
+            return e.message
         if len(digraph.body) < 1:
             return json.dumps(obj=formatted_records, ensure_ascii=False, indent=2)
         return digraph.source.replace('\\"', "'")
@@ -327,15 +340,13 @@ class Neo4jTools(Toolkit):
             )
             formatted_data = {
                 "start_node": formatted_start_node,
-                "relationships": list(formatted_relationships),
+                "relationships": formatted_relationships,
                 "end_node": formatted_end_node,
             }
             digraph.edge(
-                tail_name=formatted_data["start_node"]["name"],
-                head_name=formatted_data["end_node"]["name"],
-                attrs=json.dumps(
-                    obj=formatted_data["relationships"], ensure_ascii=False
-                ),
+                tail_name=formatted_start_node["name"],
+                head_name=formatted_end_node["name"],
+                attrs=json.dumps(obj=formatted_relationships, ensure_ascii=False),
             )
             return formatted_data, digraph, node_ids
         elif isinstance(data, Node):
@@ -347,7 +358,9 @@ class Neo4jTools(Toolkit):
                 node_ids.add(node_id)
                 digraph.node(
                     name=formatted_data["name"],
-                    attrs=json.dumps(obj=formatted_data, ensure_ascii=False, indent=2),
+                    label=None,
+                    _attributes=None,
+                    **{k: str(v) for k, v in formatted_data.items() if k != "name"},
                 )
             return formatted_data, digraph, node_ids
         elif isinstance(data, Relationship):

@@ -22,7 +22,9 @@ from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from tools.cypher_knowledge import CypherKnowledge
+from tools.neq4j import Neo4jTools
 from agno.tools.duckduckgo import DuckDuckGoTools
+from utils.utils import DATABASE_URL, USER, PASSWORD, NEO4J_DATABASE
 from loguru import logger
 
 
@@ -79,6 +81,12 @@ class CypherGeneratorAgent(Agent):
         tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = [
             CypherKnowledge(),
             DuckDuckGoTools(news=False),
+            Neo4jTools(
+                user=USER,
+                password=PASSWORD,
+                db_uri=DATABASE_URL,
+                database=NEO4J_DATABASE,
+            ).check_cypher_syntax,
         ],
         show_tool_calls: bool = True,
         tool_call_limit: Optional[int] = None,

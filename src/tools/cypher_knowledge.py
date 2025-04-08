@@ -13,18 +13,12 @@ from haystack.document_stores.types import DuplicatePolicy
 
 class CypherKnowledge(Toolkit):
     name = "cypher_knowledge"
-    instructions = dedent(
-        """\
-        You have following tools:
-        1. If you need to retrieve relevant cypher knowledge template, use the `seach_cypher_cheatsheet` tool.\
-    """
-    )
 
     def __init__(
         self,
         name=name,
-        instructions: Optional[str] = instructions,
-        add_instructions: bool = True,
+        instructions: Optional[str] = None,
+        add_instructions: bool = False,
         cache_results: bool = False,
         cache_ttl: int = 3600,
         cache_dir: Optional[str] = None,

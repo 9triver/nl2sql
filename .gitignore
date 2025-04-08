@@ -8,7 +8,7 @@ qdrant_storage/
 *.pkl
 *.out
 venv/
-knowledge/
+# knowledge/
 storage/
 tmp/
 
