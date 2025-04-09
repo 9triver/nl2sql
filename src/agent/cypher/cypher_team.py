@@ -1,4 +1,5 @@
 import os
+from os import getenv
 from textwrap import dedent
 from typing import (
     Any,
@@ -10,36 +11,22 @@ from typing import (
     Type,
     Union,
 )
-from os import getenv
 
 from pydantic import BaseModel
 from agno.agent import Agent
 from agno.team.team import Team
 from agno.models.base import Model
-from agno.models.openai import OpenAILike
 from agno.memory.team import TeamMemory
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.storage.json import JsonStorage
-
-from .cypher_generator import CypherGeneratorAgent
+from agno.models.openai import OpenAILike
 from tools.neq4j import Neo4jTools
-
-from utils.utils import DATABASE_URL, USER, PASSWORD, NEO4J_DATABASE
+from param import Parameter
 
 
 class CypherTeam(Team):
-    # model = OpenAILike(
-    #     id="DeepSeek-R1",
-    #     base_url="https://api.sensenova.cn/compatible-mode/v1/",
-    #     api_key=getenv("SENSETIME_API_KEY"),
-    # )
-    model = OpenAILike(
-        id="Qwen/Qwen2.5-32B-Instruct",
-        base_url="https://api-inference.modelscope.cn/v1/",
-        api_key=getenv("MODELSCOPE_API_KEY"),
-    )
     description = dedent("""You are the leader of a Cypher Statement Team.""")
     instructions = dedent(
         """\
@@ -57,15 +44,14 @@ class CypherTeam(Team):
     success_criteria = dedent(
         """Answer user's question in detail based on the real data in the neo4j database."""
     )
-
-    cypher_generator: CypherGeneratorAgent = CypherGeneratorAgent()
     database_dir = "./tmp"
 
     def __init__(
         self,
-        members: List[Union[Agent, "Team"]] = [cypher_generator],
+        param: Parameter,
+        members: List[Union[Agent, "Team"]] = None,
         mode: Literal["route", "coordinate", "collaborate"] = "coordinate",
-        model: Optional[Model] = model,
+        model: Optional[Model] = None,
         name: Optional[str] = "Cypher Team",
         team_id: Optional[str] = None,
         user_id: Optional[str] = None,
@@ -84,14 +70,7 @@ class CypherTeam(Team):
         enable_agentic_context: bool = True,
         share_member_interactions: bool = True,
         read_team_history: bool = True,
-        tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = [
-            Neo4jTools(
-                user=USER,
-                password=PASSWORD,
-                db_uri=DATABASE_URL,
-                database=NEO4J_DATABASE,
-            )
-        ],
+        tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = None,
         show_tool_calls: bool = True,
         tool_call_limit: Optional[int] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
@@ -115,6 +94,21 @@ class CypherTeam(Team):
         monitoring: bool = False,
         telemetry: bool = True,
     ):
+        if model is None:
+            model = OpenAILike(
+                id=param.model_name,
+                base_url=param.model_api_base_url,
+                api_key=getenv(param.model_api_key_name),
+            )
+        if tools is None:
+            tools = [
+                Neo4jTools(
+                    user=param.DATABASE_USER,
+                    password=param.DATABASE_PASSWORD,
+                    db_uri=param.DATABASE_URL,
+                    database=param.DATABASE_NAME,
+                )
+            ]
         super().__init__(
             members=members,
             mode=mode,

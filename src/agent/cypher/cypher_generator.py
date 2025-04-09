@@ -1,3 +1,4 @@
+from os import getenv
 from textwrap import dedent
 from typing import (
     Any,
@@ -9,7 +10,6 @@ from typing import (
     Type,
     Union,
 )
-from os import getenv
 
 from pydantic import BaseModel
 from agno.agent import Agent
@@ -24,16 +24,11 @@ from agno.tools.toolkit import Toolkit
 from tools.cypher_knowledge import CypherKnowledge
 from tools.neq4j import Neo4jTools
 from agno.tools.duckduckgo import DuckDuckGoTools
-from utils.utils import DATABASE_URL, USER, PASSWORD, NEO4J_DATABASE
+from param import Parameter
 from loguru import logger
 
 
 class CypherGeneratorAgent(Agent):
-    model = OpenAILike(
-        id="Qwen/Qwen2.5-Coder-32B-Instruct",
-        base_url="https://api-inference.modelscope.cn/v1/",
-        api_key=getenv("MODELSCOPE_API_KEY"),
-    )
     role = dedent(
         """Generate precise and efficient Cypher statements based on user's natural language requirements. Please provide specific and useful infomation."""
     )
@@ -57,8 +52,9 @@ class CypherGeneratorAgent(Agent):
 
     def __init__(
         self,
+        param: Parameter,
         *,
-        model: Optional[Model] = model,
+        model: Optional[Model] = None,
         name: Optional[str] = "Cypher Generator",
         agent_id: Optional[str] = None,
         introduction: Optional[str] = None,
@@ -78,16 +74,7 @@ class CypherGeneratorAgent(Agent):
         references_format: Literal["json", "yaml"] = "json",
         storage: Optional[Storage] = None,
         extra_data: Optional[Dict[str, Any]] = None,
-        tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = [
-            CypherKnowledge(),
-            DuckDuckGoTools(news=False),
-            Neo4jTools(
-                user=USER,
-                password=PASSWORD,
-                db_uri=DATABASE_URL,
-                database=NEO4J_DATABASE,
-            ).check_cypher_syntax,
-        ],
+        tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = None,
         show_tool_calls: bool = True,
         tool_call_limit: Optional[int] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
@@ -135,6 +122,23 @@ class CypherGeneratorAgent(Agent):
         monitoring: bool = False,
         telemetry: bool = True,
     ):
+        if model is None:
+            model = OpenAILike(
+                id=param.model_name,
+                base_url=param.model_api_base_url,
+                api_key=getenv(param.model_api_key_name),
+            )
+        if tools is None:
+            tools = [
+                CypherKnowledge(),
+                DuckDuckGoTools(news=False),
+                Neo4jTools(
+                    user=param.DATABASE_USER,
+                    password=param.DATABASE_PASSWORD,
+                    db_uri=param.DATABASE_URL,
+                    database=param.DATABASE_NAME,
+                ).check_cypher_syntax,
+            ]
         super().__init__(
             model=model,
             name=name,

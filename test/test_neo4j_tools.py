@@ -3,15 +3,16 @@ import sys, os
 sys.path.insert(0, os.path.abspath("../src"))
 from textwrap import dedent
 from tools.neq4j import Neo4jTools
-from utils.utils import DATABASE_URL, USER, PASSWORD, NEO4J_DATABASE
+from param import Parameter
 
 
 class TestNeo4jTools:
+    param = Parameter(config_file_path="./config.yaml")
     neo4j_tools = Neo4jTools(
-        user=USER,
-        password=PASSWORD,
-        db_uri=DATABASE_URL,
-        database=NEO4J_DATABASE,
+        user=param.DATABASE_USER,
+        password=param.DATABASE_PASSWORD,
+        db_uri=param.DATABASE_URL,
+        database=param.DATABASE_NAME,
     )
 
     def test_show_indexes(self):

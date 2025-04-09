@@ -1,0 +1,10 @@
+model:
+  api_key_name: MODELSCOPE_API_KEY # 所用的api_key的环境变量名称
+  api_base_url: https://api-inference.modelscope.cn/v1/ # 所用模型的转发地址
+  model_name: Qwen/Qwen2.5-32B-Instruct # 所用模型的名称
+
+database:
+  URL : "neo4j://192.168.130.19:7688"
+  USER : "neo4j"
+  PASSWORD : "neo4j123!!"
+  NAME : "neo4j"
