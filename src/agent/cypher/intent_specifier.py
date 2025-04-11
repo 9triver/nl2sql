@@ -1,4 +1,3 @@
-from os import getenv
 from textwrap import dedent
 from typing import (
     Any,
@@ -14,14 +13,12 @@ from typing import (
 from pydantic import BaseModel
 from agno.agent import Agent
 from agno.models.base import Model
-from agno.models.openai import OpenAILike
 from agno.models.message import Message
 from agno.memory.agent import AgentMemory
 from agno.knowledge.agent import AgentKnowledge
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
-from tools.neq4j import Neo4jTools
 from param import Parameter
 from loguru import logger
 
@@ -100,8 +97,8 @@ class IntentSpecifierAgent(Agent):
         parse_response: bool = True,
         structured_outputs: bool = False,
         save_response_to_file: Optional[str] = None,
-        stream: Optional[bool] = None,
-        stream_intermediate_steps: bool = False,
+        stream: Optional[bool] = True,
+        stream_intermediate_steps: bool = True,
         team: Optional[List[Agent]] = None,
         team_data: Optional[Dict[str, Any]] = None,
         role: Optional[str] = role,
@@ -112,12 +109,6 @@ class IntentSpecifierAgent(Agent):
         monitoring: bool = False,
         telemetry: bool = True,
     ):
-        if model is None:
-            model = OpenAILike(
-                id=param.model_name,
-                base_url=param.model_api_base_url,
-                api_key=getenv(param.model_api_key_name),
-            )
         super().__init__(
             model=model,
             name=name,

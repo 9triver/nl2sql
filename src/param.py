@@ -1,5 +1,5 @@
 import yaml
-from typing import List
+from os import getenv
 
 
 class Parameter:
@@ -30,8 +30,8 @@ class Parameter:
         return
 
     def parse_model_config(self, model_config):
-        self.model_api_key_name = model_config["api_key_name"]
-        self.model_api_base_url = model_config["api_base_url"]
+        self.model_api_key = getenv(model_config["api_key_name"])
+        self.model_base_url = model_config["base_url"]
         self.model_name = model_config["model_name"]
         return
 

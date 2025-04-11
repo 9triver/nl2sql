@@ -14,7 +14,7 @@ export CHATGLM_API_KEY=111a***********************114pG
 
 > 在config.yaml的model中配置参数: 
 > - **api key的环境变量名称(api_key_name)** 
-> - **模型转发地址(api_base_url)**
+> - **模型转发地址(base_url)**
 > - **模型名称(model_name)** .
 
 ## 1.2 qdrant部署

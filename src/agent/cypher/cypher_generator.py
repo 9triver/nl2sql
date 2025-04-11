@@ -1,4 +1,3 @@
-from os import getenv
 from textwrap import dedent
 from typing import (
     Any,
@@ -14,7 +13,6 @@ from typing import (
 from pydantic import BaseModel
 from agno.agent import Agent
 from agno.models.base import Model
-from agno.models.openai import OpenAILike
 from agno.models.message import Message
 from agno.memory.agent import AgentMemory
 from agno.knowledge.agent import AgentKnowledge
@@ -39,14 +37,14 @@ class CypherGeneratorAgent(Agent):
             1. **Thought**: Reasoning based on the user question and previous generation.
             2. **Act**: Use one tool.
             3. **Generation**: Analyse the result of previous act, And Generate a Cypher statement(may be incomplete).
+        - Print And Answer in Chinese. But don't translate the infomation in database.
         - Continue the **Thought-Act-Observation** loop until:
             1. You are confident that you generate a syntactically correct Cypher statement which can anwser user question.
             2. Or You think the user should provide more infomation.
         
         Language Infomation:
         - The cypher cheatsheet is texts in English, so please search in English.
-        - The user's question and the data in the neo4j database are Chinese text.
-        - Print And Answer in Chinese.\
+        - The user's question and the data in the neo4j database are Chinese text.\
     """
     )
 
@@ -110,8 +108,8 @@ class CypherGeneratorAgent(Agent):
         parse_response: bool = True,
         structured_outputs: bool = False,
         save_response_to_file: Optional[str] = None,
-        stream: Optional[bool] = None,
-        stream_intermediate_steps: bool = False,
+        stream: Optional[bool] = True,
+        stream_intermediate_steps: bool = True,
         team: Optional[List[Agent]] = None,
         team_data: Optional[Dict[str, Any]] = None,
         role: Optional[str] = role,
@@ -122,12 +120,6 @@ class CypherGeneratorAgent(Agent):
         monitoring: bool = False,
         telemetry: bool = True,
     ):
-        if model is None:
-            model = OpenAILike(
-                id=param.model_name,
-                base_url=param.model_api_base_url,
-                api_key=getenv(param.model_api_key_name),
-            )
         if tools is None:
             tools = [
                 CypherKnowledge(),
