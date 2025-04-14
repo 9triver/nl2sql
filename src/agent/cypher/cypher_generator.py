@@ -15,6 +15,7 @@ from agno.agent import Agent
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.memory.agent import AgentMemory
+from agno.memory.v2.memory import Memory
 from agno.knowledge.agent import AgentKnowledge
 from agno.storage.base import Storage
 from agno.tools.function import Function
@@ -26,7 +27,7 @@ from param import Parameter
 from loguru import logger
 
 
-class CypherGeneratorAgent(Agent):
+class CypherGeneratorExecutorAgent(Agent):
     role = dedent(
         """Generate precise and efficient Cypher statements based on user's natural language requirements. Please provide specific and useful infomation."""
     )
@@ -38,13 +39,10 @@ class CypherGeneratorAgent(Agent):
             2. **Act**: Use one tool.
             3. **Generation**: Analyse the result of previous act, And Generate a Cypher statement(may be incomplete).
         - Print And Answer in Chinese. But don't translate the infomation in database.
+        - **Never Never Never** make assumption when you write cypher statement. If you need detailed infomation(like node/edge's type, label...), Ask User.
         - Continue the **Thought-Act-Observation** loop until:
-            1. You are confident that you generate a syntactically correct Cypher statement which can anwser user question.
-            2. Or You think the user should provide more infomation.
-        
-        Language Infomation:
-        - The cypher cheatsheet is texts in English, so please search in English.
-        - The user's question and the data in the neo4j database are Chinese text.\
+            1. You think the user should provide more infomation.
+            2. Or You are confident that you generate a syntactically correct Cypher statement which can anwser user question.\
     """
     )
 
@@ -53,7 +51,7 @@ class CypherGeneratorAgent(Agent):
         param: Parameter,
         *,
         model: Optional[Model] = None,
-        name: Optional[str] = "Cypher Generator",
+        name: Optional[str] = "cypher-generator",
         agent_id: Optional[str] = None,
         introduction: Optional[str] = None,
         user_id: Optional[str] = None,
@@ -63,9 +61,15 @@ class CypherGeneratorAgent(Agent):
         context: Optional[Dict[str, Any]] = None,
         add_context: bool = False,
         resolve_context: bool = True,
-        memory: Optional[AgentMemory] = None,
+        memory: Optional[Union[AgentMemory, Memory]] = None,
+        enable_agentic_memory: bool = False,
+        enable_user_memories: bool = False,
+        add_memory_references: Optional[bool] = None,
+        enable_session_summaries: bool = False,
+        add_session_summary_references: Optional[bool] = None,
         add_history_to_messages: bool = False,
-        num_history_responses: int = 3,
+        num_history_responses: Optional[int] = None,
+        num_history_runs: int = 3,
         knowledge: Optional[AgentKnowledge] = None,
         add_references: bool = False,
         retriever: Optional[Callable[..., Optional[List[Dict]]]] = None,
@@ -82,54 +86,57 @@ class CypherGeneratorAgent(Agent):
         reasoning_min_steps: int = 1,
         reasoning_max_steps: int = 10,
         read_chat_history: bool = False,
-        search_knowledge: bool = True,
+        search_knowledge: bool = False,
         update_knowledge: bool = False,
         read_tool_call_history: bool = False,
         system_message: Optional[Union[str, Callable, Message]] = None,
         system_message_role: str = "system",
-        create_default_system_message: bool = True,
+        create_default_system_message: bool = False,
         description: Optional[str] = description,
         goal: Optional[str] = None,
         instructions: Optional[Union[str, List[str], Callable]] = instructions,
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
-        markdown: bool = True,
-        add_name_to_instructions: bool = False,
+        markdown: bool = False,
+        add_name_to_instructions: bool = True,
         add_datetime_to_instructions: bool = False,
+        timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
         add_messages: Optional[List[Union[Dict, Message]]] = None,
         user_message: Optional[Union[List, Dict, str, Callable, Message]] = None,
         user_message_role: str = "user",
-        create_default_user_message: bool = True,
-        retries: int = 0,
+        create_default_user_message: bool = False,
+        retries: int = 3,
         delay_between_retries: int = 1,
         exponential_backoff: bool = False,
         response_model: Optional[Type[BaseModel]] = None,
         parse_response: bool = True,
-        structured_outputs: bool = False,
+        structured_outputs: Optional[bool] = None,
+        use_json_mode: bool = False,
         save_response_to_file: Optional[str] = None,
         stream: Optional[bool] = True,
         stream_intermediate_steps: bool = True,
         team: Optional[List[Agent]] = None,
         team_data: Optional[Dict[str, Any]] = None,
-        role: Optional[str] = role,
+        role: Optional[str] = None,
         respond_directly: bool = False,
-        add_transfer_instructions: bool = True,
+        add_transfer_instructions: bool = False,
         team_response_separator: str = "\n",
-        debug_mode: bool = False,
+        debug_mode: bool = True,
         monitoring: bool = False,
-        telemetry: bool = True,
+        telemetry: bool = False,
     ):
         if tools is None:
+            neo4j_tools = Neo4jTools(
+                user=param.DATABASE_USER,
+                password=param.DATABASE_PASSWORD,
+                db_uri=param.DATABASE_URL,
+                database=param.DATABASE_NAME,
+            )
             tools = [
                 CypherKnowledge(),
                 DuckDuckGoTools(news=False),
-                Neo4jTools(
-                    user=param.DATABASE_USER,
-                    password=param.DATABASE_PASSWORD,
-                    db_uri=param.DATABASE_URL,
-                    database=param.DATABASE_NAME,
-                ).check_cypher_syntax,
+                neo4j_tools.check_cypher_syntax,
             ]
         super().__init__(
             model=model,
@@ -144,8 +151,14 @@ class CypherGeneratorAgent(Agent):
             add_context=add_context,
             resolve_context=resolve_context,
             memory=memory,
+            enable_agentic_memory=enable_agentic_memory,
+            enable_user_memories=enable_user_memories,
+            add_memory_references=add_memory_references,
+            enable_session_summaries=enable_session_summaries,
+            add_session_summary_references=add_session_summary_references,
             add_history_to_messages=add_history_to_messages,
             num_history_responses=num_history_responses,
+            num_history_runs=num_history_runs,
             knowledge=knowledge,
             add_references=add_references,
             retriever=retriever,
@@ -176,6 +189,7 @@ class CypherGeneratorAgent(Agent):
             markdown=markdown,
             add_name_to_instructions=add_name_to_instructions,
             add_datetime_to_instructions=add_datetime_to_instructions,
+            timezone_identifier=timezone_identifier,
             add_state_in_messages=add_state_in_messages,
             add_messages=add_messages,
             user_message=user_message,
@@ -187,6 +201,7 @@ class CypherGeneratorAgent(Agent):
             response_model=response_model,
             parse_response=parse_response,
             structured_outputs=structured_outputs,
+            use_json_mode=use_json_mode,
             save_response_to_file=save_response_to_file,
             stream=stream,
             stream_intermediate_steps=stream_intermediate_steps,

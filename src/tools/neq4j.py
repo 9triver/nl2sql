@@ -78,7 +78,7 @@ class Neo4jTools(Toolkit):
         self.register(self.show_metadata)
         self.register(self.show_indexes)
         self.register(self.check_cypher_syntax)
-        self.register(self.execute_query)
+        self.register(self.execute_cypher_statement)
 
     def show_indexes(self) -> str:
         """
@@ -87,7 +87,7 @@ class Neo4jTools(Toolkit):
         Returns:
             str: A JSON-formatted string containing the index information, with certain keys removed for clarity.
         """
-        result, _ = self._execute_query(query="SHOW INDEXES")
+        result, _ = self._execute_cypher_statement(cypher="SHOW INDEXES")
         # filter
         result = self._remove_keys(
             obj=result,
@@ -112,7 +112,7 @@ class Neo4jTools(Toolkit):
                 - Relationship types and their counts in a tabulated format.
         """
         # count labels
-        labels_table, _ = self._execute_query(
+        labels_table, _ = self._execute_cypher_statement(
             dedent(
                 """\
             MATCH (n)
@@ -124,8 +124,8 @@ class Neo4jTools(Toolkit):
         labels_table = json.dumps(obj=labels_table, ensure_ascii=False, indent=2)
 
         # get all relation types
-        records, _ = self._execute_query(
-            query="CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
+        records, _ = self._execute_cypher_statement(
+            cypher="CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
         )
         records = self._extract_keys(obj=records, keys_to_keep=["relationshipType"])
         rel_types = [record["relationshipType"] for record in records]
@@ -133,8 +133,8 @@ class Neo4jTools(Toolkit):
         # count relation types
         rel_counts = []
         for rel_type in rel_types:
-            records, _ = self._execute_query(
-                query=dedent(
+            records, _ = self._execute_cypher_statement(
+                cypher=dedent(
                     f"""\
                     MATCH ()-[r:`{rel_type}`]->()
                     RETURN COUNT(r) AS count
@@ -153,10 +153,9 @@ class Neo4jTools(Toolkit):
 
         return f"Node labels:{labels_table}\n\n\nRelationship types:{rel_table}"
 
-    def get_similar_node(self, query: str, top_k: int) -> str:
+    def get_similar_node(self, query: str, top_k: int = 3) -> str:
         """
         Finds and returns nodes similar to a given query using embeddings and vector search.
-
         Args:
             query (str): The query string to find similar nodes for.
             top_k (int): The maximum number of similar nodes to retrieve.
@@ -165,7 +164,7 @@ class Neo4jTools(Toolkit):
             str: A JSON-formatted string containing the most similar nodes, sorted by relevance.
         """
         # get all index names
-        result, _ = self._execute_query(query="SHOW INDEXES")
+        result, _ = self._execute_cypher_statement(cypher="SHOW INDEXES")
         result = self._extract_keys(
             obj=result,
             keys_to_keep=["name"],
@@ -201,61 +200,58 @@ class Neo4jTools(Toolkit):
 
     def check_cypher_syntax(self, cypher: str) -> str:
         """
-        Checks the syntax of a given Cypher query string.
+        Checks the syntax of a given cypher statement string.
 
         Args:
-            cypher (str): The Cypher query string to be validated.
+            cypher (str): The cypher statement string to be validated.
 
         Returns:
-            str: If the query contains a syntax error, returns the error message.
+            str: If the cypher statement contains a syntax error, returns the error message.
                  Otherwise, returns "No Cypher Syntax Error".
         """
         try:
-            self._execute_query(query=cypher, parameters=None)
+            self._execute_cypher_statement(cypher=cypher, parameters=None)
         except CypherSyntaxError as e:
             return e.message
         return "No Cypher Syntax Error"
 
-    def execute_query(self, query: str, parameters=None) -> str:
-        """Execute a Cypher query and return the results as a formatted string (JSON or graph source).
+    def execute_cypher_statement(self, cypher: str) -> str:
+        """Execute a cypher statement and return the results as a formatted string (JSON or graph source).
 
         Args:
-            query (str): The Cypher query to execute.
-            parameters (dict, optional): Optional parameters for the query. Defaults to None.
+            cypher (str): The cypher statement to execute.
 
         Returns:
             str:
-                - If the query results contain a graph (relationships), returns the graph source (e.g., DOT format).
-                - If the query results are plain records, returns them as a JSON-formatted string.
+                - If the execute results contain a graph (relationships), returns the graph source (e.g., DOT format).
+                - If the execute results are plain records, returns them as a JSON-formatted string.
                 - If there's a syntax error, returns the error message.
         """
         try:
-            formatted_records, digraph = self._execute_query(
-                query=query, parameters=parameters
-            )
+            formatted_records, digraph = self._execute_cypher_statement(cypher=cypher)
         except CypherSyntaxError as e:
             return e.message
         if len(digraph.body) < 1:
             return json.dumps(obj=formatted_records, ensure_ascii=False, indent=2)
         return digraph.source.replace('\\"', "'")
 
-    def _execute_query(
-        self, query: str, parameters=None
+    def _execute_cypher_statement(
+        self, cypher: str, parameters=None
     ) -> Tuple[List[Dict[str, Any]], Digraph]:
-        """Execute a Cypher query and return the formatted results as well as a graph representation.
+        """Execute a cypher statement and return the formatted results as well as a graph representation.
 
         Args:
-            query (str): The Cypher query to execute.
-            parameters (dict, optional): Optional parameters for the query. Defaults to None.
+            cypher (str): The cypher statement to execute.
+            parameters (dict, optional): Optional parameters for the cypher statement. Defaults to None.
 
         Returns:
             Tuple[List[Dict[str, Any]], Digraph]:
-                - A list of dictionaries representing formatted query results.
+                - A list of dictionaries representing formatted execute cypher results.
                 - A Digraph object representing the relationships in the results.
         """
         parameters = parameters or {}
         records, summary, keys = self._driver.execute_query(
-            query_=query,
+            query_=cypher,
             parameters_=parameters,
             database_=self.database,
         )
@@ -266,7 +262,7 @@ class Neo4jTools(Toolkit):
         """Format raw database records into structured dictionaries and a graph representation.
 
         Args:
-            keys: The keys (field names) from the query result.
+            keys: The keys (field names) from the cypher result.
             records: The raw records returned by the database.
 
         Returns:

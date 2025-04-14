@@ -88,7 +88,7 @@ class CypherKnowledge(Toolkit):
 
     def seach_cypher_cheatsheet(self, query: str, top_k: int = 5) -> str:
         """
-        Retrieve relevant cypher knowledge template from Cypher cheat sheet information based on the given query.
+        Retrieve relevant cypher knowledge template information based on the given query. The cypher cheatsheet is texts in English, so please search in English.
 
         Args:
             query (str): The search query string.

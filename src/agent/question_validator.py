@@ -21,30 +21,19 @@ from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from param import Parameter
-from tools.neq4j import Neo4jTools
-from loguru import logger
 
 
-class IntentSpecifierAgent(Agent):
+class QuestionValidatorAgent(Agent):
     role = dedent(
-        """Find detailed infomation in the Neo4j graph database about the entities in user's question. Please provide user's original question."""
+        """Validate whether the team leader has successfully answered the user's question. Please provide me with the user's original question and your response."""
     )
     description = None
     instructions = dedent(
         """\
-        1. Extract entities from the user's question.
-        2. Map the entities to the entities in the Neo4j graph database.
-        3. Search the **detailed infomation** about the entities in the Neo4j graph database.
-        4. The **detailed infomation** must come from database, don't make fake infomation.
-        5. Using following json formation to response in chinese.
-        ```json
-        {
-            "xx变压器": "是一个节点，其详细信息为: ...",
-            "xx电线": "是一条边，其详细信息为: ...",
-            ...
-        }
-        ```\
-    """
+        Determine whether the response has addressed the user's question in detail and accurately.
+        - If not, explain the reason for the unsuccessful response and provide a detailed follow-up plan.
+        - Else If successful, simply reply with "Answer successful."\
+        """
     )
 
     def __init__(
@@ -52,7 +41,7 @@ class IntentSpecifierAgent(Agent):
         param: Parameter,
         *,
         model: Optional[Model] = None,
-        name: Optional[str] = "intent-specifier",
+        name: Optional[str] = "question-validator",
         agent_id: Optional[str] = None,
         introduction: Optional[str] = None,
         user_id: Optional[str] = None,
@@ -99,7 +88,7 @@ class IntentSpecifierAgent(Agent):
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
         markdown: bool = False,
-        add_name_to_instructions: bool = False,
+        add_name_to_instructions: bool = True,
         add_datetime_to_instructions: bool = False,
         timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
@@ -119,23 +108,14 @@ class IntentSpecifierAgent(Agent):
         stream_intermediate_steps: bool = True,
         team: Optional[List[Agent]] = None,
         team_data: Optional[Dict[str, Any]] = None,
-        role: Optional[str] = role,
+        role: Optional[str] = None,
         respond_directly: bool = False,
-        add_transfer_instructions: bool = True,
+        add_transfer_instructions: bool = False,
         team_response_separator: str = "\n",
         debug_mode: bool = True,
         monitoring: bool = False,
         telemetry: bool = False,
     ):
-        if tools is None:
-            tools = [
-                Neo4jTools(
-                    user=param.DATABASE_USER,
-                    password=param.DATABASE_PASSWORD,
-                    db_uri=param.DATABASE_URL,
-                    database=param.DATABASE_NAME,
-                ).get_similar_node,
-            ]
         super().__init__(
             model=model,
             name=name,

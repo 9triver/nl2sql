@@ -25,23 +25,23 @@ class TestNeo4jTools:
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_query_1(self):
-        result = self.neo4j_tools.execute_query(
-            query="MATCH p=()-[r:CONTAINS]->() RETURN p LIMIT 3"
+    def test_execute_cypher_statement_1(self):
+        result = self.neo4j_tools.execute_cypher_statement(
+            cypher="MATCH p=()-[r:CONTAINS]->() RETURN p LIMIT 3"
         )
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_query_2(self):
-        result = self.neo4j_tools.execute_query(
-            query="MATCH (n:系统组件:主机) RETURN n LIMIT 3"
+    def test_execute_cypher_statement_2(self):
+        result = self.neo4j_tools.execute_cypher_statement(
+            cypher="MATCH (n:系统组件:主机) RETURN n LIMIT 3"
         )
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_query_3(self):
-        result = self.neo4j_tools.execute_query(
-            query=dedent(
+    def test_execute_cypher_statement_3(self):
+        result = self.neo4j_tools.execute_cypher_statement(
+            cypher=dedent(
                 """\
                 MATCH (n) WHERE (n.`中间件服务地址`) IS NOT NULL 
                 RETURN DISTINCT "node" as entity, n.`中间件服务地址` AS `中间件服务地址` LIMIT 25 
@@ -54,9 +54,21 @@ class TestNeo4jTools:
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_query_4(self):
-        result = self.neo4j_tools.execute_query(
-            query="MATCH (n:Person | {name: 'Alice'}) RETURN n"
+    def test_execute_cypher_statement_4(self):
+        result = self.neo4j_tools.execute_cypher_statement(
+            cypher="MATCH (n:Person | {name: 'Alice'}) RETURN n"
+        )
+        assert isinstance(result, str)
+        print(result)
+
+    def test_execute_cypher_statement_5(self):
+        result = self.neo4j_tools.execute_cypher_statement(
+            cypher=dedent(
+                """\
+                MATCH (system:System {name: '数智信通'})-[:RELATES_TO]->(component)
+                RETURN component\
+                """
+            )
         )
         assert isinstance(result, str)
         print(result)
