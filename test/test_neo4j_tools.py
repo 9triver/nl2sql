@@ -7,7 +7,7 @@ from param import Parameter
 
 
 class TestNeo4jTools:
-    param = Parameter(config_file_path="./config.yaml")
+    param = Parameter(config_file_path="../config.yaml")
     neo4j_tools = Neo4jTools(
         user=param.DATABASE_USER,
         password=param.DATABASE_PASSWORD,
@@ -68,6 +68,15 @@ class TestNeo4jTools:
                 MATCH (system:System {name: '数智信通'})-[:RELATES_TO]->(component)
                 RETURN component\
                 """
+            )
+        )
+        assert isinstance(result, str)
+        print(result)
+
+    def test_execute_cypher_statement_6(self):
+        result = self.neo4j_tools.execute_cypher_statement(
+            cypher=dedent(
+                """ MATCH (sys:系统资源 {系统资源名称: '数智信通'})--(relatedNodes) RETURN sys, r, relatedNodes)"""
             )
         )
         assert isinstance(result, str)

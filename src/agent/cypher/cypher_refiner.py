@@ -20,30 +20,30 @@ from agno.knowledge.agent import AgentKnowledge
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
-from param import Parameter
 from tools.neq4j import Neo4jTools
+from param import Parameter
 from loguru import logger
 
 
-class IntentSpecifierAgent(Agent):
+class CypherRefinerAgent(Agent):
+    name = "cypher-refiner"
     role = dedent(
-        """Find detailed infomation in the Neo4j graph database about the entities in user's question. Please provide user's original question."""
+        """Refine cypher statements based on user's questions. Please provide target cypher statements and user's question."""
     )
     description = None
     instructions = dedent(
         """\
-        1. Extract entities from the user's question.
-        2. Map the entities to the entities in the Neo4j graph database.
-        3. Search the **detailed infomation** about the entities in the Neo4j graph database.
-        4. The **detailed infomation** must come from database, don't make fake infomation.
-        5. Using following json formation to response in chinese.
-        ```json
-        {
-            "xx变压器": "是一个节点，其详细信息为: ...",
-            "xx电线": "是一条边，其详细信息为: ...",
-            ...
-        }
-        ```\
+        - Follow and Print the **Thought-Execute-Refine** chain-of-thought traces:
+            1. **Thought**: Reasoning based on the user question and previous refined cypher statement.
+            2. **Execute**: Execute the cypher statement.
+            3. **Refine**: Analyse the result of previous execution, And Refine the cypher statement which is possible wrong.
+        - Print And Answer in Chinese. But don't translate the infomation in database.
+        - Refine Principles:
+            1. delete unuseful infomation in the cypher statement. Like labels, properties and so on.
+            2. make cypher staement simple, concise and elegant.
+            3. infomation in Database is in Chinese, so the label, properties and so on should be chinese text.
+        - Continue the **Thought-Execute-Refine** loop until: the refined cypher statement can be executed with no error and can anwser user question.
+        - Only return a cypher statement.\
     """
     )
 
@@ -52,8 +52,8 @@ class IntentSpecifierAgent(Agent):
         param: Parameter,
         *,
         model: Optional[Model] = None,
-        name: Optional[str] = "intent-specifier",
-        agent_id: Optional[str] = None,
+        name: Optional[str] = name,
+        agent_id: Optional[str] = name,
         introduction: Optional[str] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -99,7 +99,7 @@ class IntentSpecifierAgent(Agent):
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
         markdown: bool = False,
-        add_name_to_instructions: bool = False,
+        add_name_to_instructions: bool = True,
         add_datetime_to_instructions: bool = False,
         timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
@@ -121,7 +121,7 @@ class IntentSpecifierAgent(Agent):
         team_data: Optional[Dict[str, Any]] = None,
         role: Optional[str] = role,
         respond_directly: bool = False,
-        add_transfer_instructions: bool = True,
+        add_transfer_instructions: bool = False,
         team_response_separator: str = "\n",
         debug_mode: bool = True,
         monitoring: bool = False,
@@ -134,7 +134,10 @@ class IntentSpecifierAgent(Agent):
                     password=param.DATABASE_PASSWORD,
                     db_uri=param.DATABASE_URL,
                     database=param.DATABASE_NAME,
-                ).get_similar_node,
+                    execution=True,
+                    labels=True,
+                    relationships=True,
+                )
             ]
         super().__init__(
             model=model,

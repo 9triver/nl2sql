@@ -46,6 +46,11 @@ class Neo4jTools(Toolkit):
         dialect: Optional[str] = None,
         host: Optional[str] = None,
         port: Optional[int] = None,
+        labels: bool = False,
+        relationships: bool = False,
+        similar_nodes: bool = False,
+        syntax: bool = False,
+        execution: bool = False,
     ):
         super().__init__(
             name=name,
@@ -74,15 +79,19 @@ class Neo4jTools(Toolkit):
         )
         self.text_embedder.warm_up()
 
-        self.register(self.get_similar_node)
-        self.register(self.show_metadata)
-        self.register(self.show_indexes)
-        self.register(self.check_cypher_syntax)
-        self.register(self.execute_cypher_statement)
+        if labels:
+            self.register(self.show_labels)
+        if relationships:
+            self.register(self.show_relationships)
+        if similar_nodes:
+            self.register(self.get_similar_node)
+        if syntax:
+            self.register(self.check_cypher_syntax)
+        if execution:
+            self.register(self.execute_cypher_statement)
 
     def show_indexes(self) -> str:
-        """
-        Retrieves and formats the indexes from the Neo4j database.
+        """Use this function to show the indexes in the Neo4j database.
 
         Returns:
             str: A JSON-formatted string containing the index information, with certain keys removed for clarity.
@@ -102,16 +111,12 @@ class Neo4jTools(Toolkit):
         )
         return json.dumps(obj=result, indent=2, ensure_ascii=False)
 
-    def show_metadata(self) -> str:
-        """
-        Retrieves and formats metadata about nodes and relationships in the Neo4j database.
+    def show_labels(self) -> str:
+        """Use this function to show all labels' infomation in neo4j database.
 
         Returns:
-            str: A formatted string containing:
-                - Node labels and their counts in JSON format.
-                - Relationship types and their counts in a tabulated format.
+            str: Node labels and their counts in JSON format.
         """
-        # count labels
         labels_table, _ = self._execute_cypher_statement(
             dedent(
                 """\
@@ -122,15 +127,20 @@ class Neo4jTools(Toolkit):
             )
         )
         labels_table = json.dumps(obj=labels_table, ensure_ascii=False, indent=2)
+        return f"Node labels:{labels_table}"
 
-        # get all relation types
+    def show_relationships(self) -> str:
+        """Use this function to show all relationships' infomation in neo4j database.
+
+        Returns:
+            str: Relationship types and their counts in a tabulated format.
+        """
         records, _ = self._execute_cypher_statement(
             cypher="CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
         )
         records = self._extract_keys(obj=records, keys_to_keep=["relationshipType"])
         rel_types = [record["relationshipType"] for record in records]
 
-        # count relation types
         rel_counts = []
         for rel_type in rel_types:
             records, _ = self._execute_cypher_statement(
@@ -151,18 +161,18 @@ class Neo4jTools(Toolkit):
             stralign="left",
         )
 
-        return f"Node labels:{labels_table}\n\n\nRelationship types:{rel_table}"
+        return f"Relationship types:{rel_table}"
 
-    def get_similar_node(self, query: str, top_k: int = 3) -> str:
-        """
-        Finds and returns nodes similar to a given query using embeddings and vector search.
+    def get_similar_node(self, query: str) -> str:
+        """Use this function to find nodes similar to a given query.
+
         Args:
             query (str): The query string to find similar nodes for.
-            top_k (int): The maximum number of similar nodes to retrieve.
 
         Returns:
             str: A JSON-formatted string containing the most similar nodes, sorted by relevance.
         """
+        top_k = 1
         # get all index names
         result, _ = self._execute_cypher_statement(cypher="SHOW INDEXES")
         result = self._extract_keys(
@@ -199,8 +209,7 @@ class Neo4jTools(Toolkit):
         return json.dumps(obj=formatted_records, ensure_ascii=False, indent=2)
 
     def check_cypher_syntax(self, cypher: str) -> str:
-        """
-        Checks the syntax of a given cypher statement string.
+        """Use this function to check the syntax of a cypher statement.
 
         Args:
             cypher (str): The cypher statement string to be validated.
@@ -216,7 +225,7 @@ class Neo4jTools(Toolkit):
         return "No Cypher Syntax Error"
 
     def execute_cypher_statement(self, cypher: str) -> str:
-        """Execute a cypher statement and return the results as a formatted string (JSON or graph source).
+        """Use this function to execute a cypher statement and return the results.
 
         Args:
             cypher (str): The cypher statement to execute.
@@ -250,11 +259,13 @@ class Neo4jTools(Toolkit):
                 - A Digraph object representing the relationships in the results.
         """
         parameters = parameters or {}
+
         records, summary, keys = self._driver.execute_query(
             query_=cypher,
             parameters_=parameters,
             database_=self.database,
         )
+
         formatted_records, digraph = self._format_records(keys=keys, records=records)
         return formatted_records, digraph
 

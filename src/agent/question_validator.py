@@ -20,29 +20,28 @@ from agno.knowledge.agent import AgentKnowledge
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
-from param import Parameter
 
 
 class QuestionValidatorAgent(Agent):
+    name = "question-validator"
     role = dedent(
         """Validate whether the team leader has successfully answered the user's question. Please provide me with the user's original question and your response."""
     )
     description = None
     instructions = dedent(
         """\
-        Determine whether the response has addressed the user's question in detail and accurately.
-        - If not, explain the reason for the unsuccessful response and provide a detailed follow-up plan.
+        Validate whether the response has addressed the user's question in detail and accurately.
+        - If not, explain the reason for the unsuccessful response and provide a detailed follow-up plan. Ask leader continue to solve user's question.
         - Else If successful, simply reply with "Answer successful."\
         """
     )
 
     def __init__(
         self,
-        param: Parameter,
         *,
         model: Optional[Model] = None,
-        name: Optional[str] = "question-validator",
-        agent_id: Optional[str] = None,
+        name: Optional[str] = name,
+        agent_id: Optional[str] = name,
         introduction: Optional[str] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -108,7 +107,7 @@ class QuestionValidatorAgent(Agent):
         stream_intermediate_steps: bool = True,
         team: Optional[List[Agent]] = None,
         team_data: Optional[Dict[str, Any]] = None,
-        role: Optional[str] = None,
+        role: Optional[str] = role,
         respond_directly: bool = False,
         add_transfer_instructions: bool = False,
         team_response_separator: str = "\n",

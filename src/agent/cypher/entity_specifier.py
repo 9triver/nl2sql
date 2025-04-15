@@ -20,29 +20,23 @@ from agno.knowledge.agent import AgentKnowledge
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
-from tools.cypher_knowledge import CypherKnowledge
-from tools.neq4j import Neo4jTools
-from agno.tools.duckduckgo import DuckDuckGoTools
 from param import Parameter
+from tools.neq4j import Neo4jTools
 from loguru import logger
 
 
-class CypherGeneratorExecutorAgent(Agent):
+class EntitySpecifierAgent(Agent):
+    name = "intent-specifier"
     role = dedent(
-        """Generate precise and efficient Cypher statements based on user's natural language requirements. Please provide specific and useful infomation."""
+        """Return some infomation in the Neo4j database about the entities in user's question. If you want detailed infomation, executing cypher statement is better."""
     )
     description = None
     instructions = dedent(
         """\
-        - Follow and Print the **Thought-Retrive-Generation** chain-of-thought traces:
-            1. **Thought**: Reasoning based on the user question and previous generation.
-            2. **Act**: Use one tool.
-            3. **Generation**: Analyse the result of previous act, And Generate a Cypher statement(may be incomplete).
-        - Print And Answer in Chinese. But don't translate the infomation in database.
-        - **Never Never Never** make assumption when you write cypher statement. If you need detailed infomation(like node/edge's type, label...), Ask User.
-        - Continue the **Thought-Act-Observation** loop until:
-            1. You think the user should provide more infomation.
-            2. Or You are confident that you generate a syntactically correct Cypher statement which can anwser user question.\
+        1. Extract entities from the user's question.
+        2. Map the entities to the entities in the Neo4j database.
+        3. Search the **detailed infomation** about the entities in the Neo4j database.
+        4. The **detailed infomation** must come from database, don't make fake infomation.\
     """
     )
 
@@ -51,8 +45,8 @@ class CypherGeneratorExecutorAgent(Agent):
         param: Parameter,
         *,
         model: Optional[Model] = None,
-        name: Optional[str] = "cypher-generator",
-        agent_id: Optional[str] = None,
+        name: Optional[str] = name,
+        agent_id: Optional[str] = name,
         introduction: Optional[str] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -98,7 +92,7 @@ class CypherGeneratorExecutorAgent(Agent):
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
         markdown: bool = False,
-        add_name_to_instructions: bool = True,
+        add_name_to_instructions: bool = False,
         add_datetime_to_instructions: bool = False,
         timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
@@ -118,25 +112,23 @@ class CypherGeneratorExecutorAgent(Agent):
         stream_intermediate_steps: bool = True,
         team: Optional[List[Agent]] = None,
         team_data: Optional[Dict[str, Any]] = None,
-        role: Optional[str] = None,
+        role: Optional[str] = role,
         respond_directly: bool = False,
-        add_transfer_instructions: bool = False,
+        add_transfer_instructions: bool = True,
         team_response_separator: str = "\n",
         debug_mode: bool = True,
         monitoring: bool = False,
         telemetry: bool = False,
     ):
         if tools is None:
-            neo4j_tools = Neo4jTools(
-                user=param.DATABASE_USER,
-                password=param.DATABASE_PASSWORD,
-                db_uri=param.DATABASE_URL,
-                database=param.DATABASE_NAME,
-            )
             tools = [
-                CypherKnowledge(),
-                DuckDuckGoTools(news=False),
-                neo4j_tools.check_cypher_syntax,
+                Neo4jTools(
+                    user=param.DATABASE_USER,
+                    password=param.DATABASE_PASSWORD,
+                    db_uri=param.DATABASE_URL,
+                    database=param.DATABASE_NAME,
+                    similar_nodes=True,
+                ),
             ]
         super().__init__(
             model=model,
