@@ -6,6 +6,7 @@ from neo4j import GraphDatabase, basic_auth
 from neo4j.graph import Node, Relationship, Path
 from neo4j.time import DateTime
 from neo4j.exceptions import ClientError, CypherSyntaxError
+from neo4j.work.summary import ResultSummary
 from neo4j_haystack.client import Neo4jClient, Neo4jClientConfig
 from haystack.components.embedders import SentenceTransformersTextEmbedder
 from neo4j_haystack.client.neo4j_client import DEFAULT_NEO4J_DATABASE
@@ -96,7 +97,7 @@ class Neo4jTools(Toolkit):
         Returns:
             str: A JSON-formatted string containing the index information, with certain keys removed for clarity.
         """
-        result, _ = self._execute_cypher_statement(cypher="SHOW INDEXES")
+        result, _, _ = self._execute_cypher_statement(cypher="SHOW INDEXES")
         # filter
         result = self._remove_keys(
             obj=result,
@@ -117,7 +118,7 @@ class Neo4jTools(Toolkit):
         Returns:
             str: Node labels and their counts in JSON format.
         """
-        labels_table, _ = self._execute_cypher_statement(
+        labels_table, _, _ = self._execute_cypher_statement(
             dedent(
                 """\
             MATCH (n)
@@ -135,7 +136,7 @@ class Neo4jTools(Toolkit):
         Returns:
             str: Relationship types and their counts in a tabulated format.
         """
-        records, _ = self._execute_cypher_statement(
+        records, _, _ = self._execute_cypher_statement(
             cypher="CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
         )
         records = self._extract_keys(obj=records, keys_to_keep=["relationshipType"])
@@ -143,7 +144,7 @@ class Neo4jTools(Toolkit):
 
         rel_counts = []
         for rel_type in rel_types:
-            records, _ = self._execute_cypher_statement(
+            records, _, _ = self._execute_cypher_statement(
                 cypher=dedent(
                     f"""\
                     MATCH ()-[r:`{rel_type}`]->()
@@ -174,7 +175,7 @@ class Neo4jTools(Toolkit):
         """
         top_k = 1
         # get all index names
-        result, _ = self._execute_cypher_statement(cypher="SHOW INDEXES")
+        result, _, _ = self._execute_cypher_statement(cypher="SHOW INDEXES")
         result = self._extract_keys(
             obj=result,
             keys_to_keep=["name"],
@@ -219,10 +220,12 @@ class Neo4jTools(Toolkit):
                  Otherwise, returns "No Cypher Syntax Error".
         """
         try:
-            self._execute_cypher_statement(cypher=cypher, parameters=None)
+            _, _, summary = self._execute_cypher_statement(
+                cypher=cypher, parameters=None
+            )
         except CypherSyntaxError as e:
             return e.message
-        return "No Cypher Syntax Error"
+        return f"No Cypher Syntax Error, Summary:{summary}"
 
     def execute_cypher_statement(self, cypher: str) -> str:
         """Use this function to execute a cypher statement and return the results.
@@ -237,12 +240,17 @@ class Neo4jTools(Toolkit):
                 - If there's a syntax error, returns the error message.
         """
         try:
-            formatted_records, digraph = self._execute_cypher_statement(cypher=cypher)
+            formatted_records, digraph, formatted_summary = (
+                self._execute_cypher_statement(cypher=cypher)
+            )
         except CypherSyntaxError as e:
             return e.message
-        if len(digraph.body) < 1:
-            return json.dumps(obj=formatted_records, ensure_ascii=False, indent=2)
-        return digraph.source.replace('\\"', "'")
+        result = (
+            json.dumps(obj=formatted_records, ensure_ascii=False, indent=2)
+            if len(digraph.body) < 1
+            else digraph.source.replace('\\"', "'")
+        )
+        return f"Summary:\n{formatted_summary}\n\nResult:\n{result}"
 
     def _execute_cypher_statement(
         self, cypher: str, parameters=None
@@ -267,7 +275,14 @@ class Neo4jTools(Toolkit):
         )
 
         formatted_records, digraph = self._format_records(keys=keys, records=records)
-        return formatted_records, digraph
+        formatted_summary = self._format_summary(summary=summary)
+        return formatted_records, digraph, formatted_summary
+
+    def _format_summary(self, summary: ResultSummary):
+        formatted_summary = ""
+        for notification in summary.summary_notifications:
+            formatted_summary += f"{notification.title}\n{notification.description}\n\n"
+        return formatted_summary
 
     def _format_records(self, keys, records) -> Tuple[List[Dict[str, Any]], Digraph]:
         """Format raw database records into structured dictionaries and a graph representation.
