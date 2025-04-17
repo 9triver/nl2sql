@@ -76,20 +76,21 @@ class TestNeo4jTools:
     def test_execute_cypher_statement_6(self):
         result = self.neo4j_tools.execute_cypher_statement(
             cypher=dedent(
-                """ MATCH (sys:系统资源 {系统资源名称: '数智信通'})--(relatedNodes) RETURN sys, r, relatedNodes)"""
+                """MATCH (sys:系统资源 {系统资源名称: '数智信通'})--(relatedNodes) RETURN sys, r, relatedNodes)"""
             )
         )
         assert isinstance(result, str)
         print(result)
 
-    def test_parse_cypher_1(self):
-        result = self.neo4j_tools.parse_cypher_statement(
-            cypher=dedent("""MATCH p=()-[r:CONTAINS]->() RETURN p LIMIT 3""")
+    def test_execute_cypher_statement_paths(self):
+        result = self.neo4j_tools.execute_cypher_statement(
+            cypher=dedent(
+                """\
+                MATCH p = (a)-[*1..5]-(b)
+                WHERE a.name = '智能一体化运维支撑平台' AND b.name = '智能一体化运维支撑平台oracle主库生产环境数据源'
+                RETURN p, nodes(p) AS path_nodes, relationships(p) AS relationships\
+                """
+            )
         )
-        print(result)
-
-    def test_parse_cypher_2(self):
-        result = self.neo4j_tools.parse_cypher_statement(
-            cypher=dedent("""MATCH (n:Person | {name: 'Alice'}) RETURN n""")
-        )
+        assert isinstance(result, str)
         print(result)

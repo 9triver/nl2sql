@@ -99,7 +99,7 @@ class QuestionValidatorAgent(Agent):
         delay_between_retries: int = 1,
         exponential_backoff: bool = False,
         response_model: Optional[Type[BaseModel]] = None,
-        parse_response: bool = True,
+        parse_response: bool = False,
         structured_outputs: Optional[bool] = None,
         use_json_mode: bool = False,
         save_response_to_file: Optional[str] = None,

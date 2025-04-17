@@ -311,87 +311,96 @@ class Neo4jTools(Toolkit):
         self,
         data,
         digraph: Digraph = Digraph(name="Result"),
-        node_ids: Set = set(),
+        entity_set: Set = set(),
     ) -> List[Dict[str, Any]]:
-        """Recursively format data (nodes, relationships, etc.) into a structured format for JSON serialization.
-
+        """Formats a record (or nested data structure) into a JSON-compatible format and updates the provided graph visualization.
+        
         Args:
-            data: The data to format (could be a Node, Relationship, Path, or primitive type).
-            digraph (Digraph): A graph to store relationships between nodes. Defaults to a new Digraph.
-            node_ids (Set): A set of node IDs to track uniqueness. Defaults to an empty set.
-
+            data: The input data to be formatted, which can be of various types (e.g., primitive, dict, list, Node, Relationship).
+            digraph (Digraph): A directed graph object for visualizing relationships (default: empty Digraph named "Result").
+            entity_set (Set): A set to track processed entities (nodes/relationships) to avoid duplication (default: empty set).
+        
         Returns:
-            Tuple[List[Dict[str, Any]], Digraph, Set]:
-                - The formatted data.
-                - The updated Digraph with nodes and relationships.
-                - The updated set of node IDs.
-
+            Tuple containing:
+                - formatted_data: The formatted JSON-compatible data (dict or list).
+                - digraph: The updated directed graph with nodes/edges for visualization.
+                - entity_set: The updated set of processed entities.
+        
         Raises:
-            TypeError: If an unsupported data type is encountered.
+            TypeError: If the input data type is not supported.
+        
+        Notes:
+            - Handles primitive types (int, str, float), DateTime, dictionaries, lists, Path, Node, and Relationship.
+            - For Node/Relationship objects, adds them as nodes/edges to the graph and ensures uniqueness via `entity_set`.
         """
         if data is None or isinstance(data, (int, str, float)):
-            return data, digraph, node_ids
+            return data, digraph, entity_set
         elif isinstance(data, DateTime):
-            return str(data), digraph, node_ids
+            return str(data), digraph, entity_set
         elif isinstance(data, dict):
             formatted_data = {}
             for key, value in data.items():
-                formatted_value, digraph, node_ids = self._format_record_json(
-                    data=value, digraph=digraph, node_ids=node_ids
+                formatted_value, digraph, entity_set = self._format_record_json(
+                    data=value, digraph=digraph, entity_set=entity_set
                 )
                 formatted_data[key] = formatted_value
-            return formatted_data, digraph, node_ids
+            return formatted_data, digraph, entity_set
         elif isinstance(data, (list, tuple)):
             filtered = []
             for item in data:
-                processed_item, digraph, node_ids = self._format_record_json(
-                    data=item, digraph=digraph, node_ids=node_ids
+                processed_item, digraph, entity_set = self._format_record_json(
+                    data=item, digraph=digraph, entity_set=entity_set
                 )
                 if not isinstance(processed_item, float):
                     filtered.append(processed_item)
-            return filtered, digraph, node_ids
+            return filtered, digraph, entity_set
         elif isinstance(data, Path):
-            formatted_start_node, digraph, node_ids = self._format_record_json(
-                data=data.start_node, digraph=digraph, node_ids=node_ids
+            formatted_nodes, digraph, entity_set = self._format_record_json(
+                data=data.nodes, digraph=digraph, entity_set=entity_set
             )
-            formatted_relationships, digraph, node_ids = self._format_record_json(
-                data=data.relationships, digraph=digraph, node_ids=node_ids
-            )
-            formatted_end_node, digraph, node_ids = self._format_record_json(
-                data=data.end_node, digraph=digraph, node_ids=node_ids
+            formatted_relationships, digraph, entity_set = self._format_record_json(
+                data=data.relationships, digraph=digraph, entity_set=entity_set
             )
             formatted_data = {
-                "start_node": formatted_start_node,
+                "nodes": formatted_nodes,
                 "relationships": formatted_relationships,
-                "end_node": formatted_end_node,
             }
-            digraph.edge(
-                tail_name=formatted_start_node["name"],
-                head_name=formatted_end_node["name"],
-                attrs=json.dumps(obj=formatted_relationships, ensure_ascii=False),
-            )
-            return formatted_data, digraph, node_ids
+            return formatted_data, digraph, entity_set
         elif isinstance(data, Node):
-            formatted_data, digraph, node_ids = self._format_record_json(
-                data={**data}, digraph=digraph, node_ids=node_ids
+            formatted_data, digraph, entity_set = self._format_record_json(
+                data={**data}, digraph=digraph, entity_set=entity_set
             )
-            node_id = formatted_data["id"]
-            if node_id not in node_ids:
-                node_ids.add(node_id)
+            if data not in entity_set:
+                entity_set.add(data)
                 digraph.node(
                     name=formatted_data["name"],
                     label=None,
                     _attributes=None,
                     **{k: str(v) for k, v in formatted_data.items() if k != "name"},
                 )
-            return formatted_data, digraph, node_ids
+            return formatted_data, digraph, entity_set
         elif isinstance(data, Relationship):
+            formatted_start_node, digraph, entity_set = self._format_record_json(
+                data=data.start_node, digraph=digraph, entity_set=entity_set
+            )
+            formatted_end_node, digraph, entity_set = self._format_record_json(
+                data=data.end_node, digraph=digraph, entity_set=entity_set
+            )
             formatted_data = {
+                "start_node": formatted_start_node,
                 "element_id": data.element_id,
                 "type": data.type,
                 "properties": data._properties,
+                "end_node": formatted_end_node,
             }
-            return formatted_data, digraph, node_ids
+            if data not in entity_set:
+                entity_set.add(data)
+                digraph.edge(
+                    tail_name=formatted_start_node["name"],
+                    head_name=formatted_end_node["name"],
+                    attrs=json.dumps(obj=formatted_data, ensure_ascii=False),
+                )
+            return formatted_data, digraph, entity_set
         else:
             raise TypeError(f"Unknow Type {type(data)}")
 

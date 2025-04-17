@@ -21,6 +21,6 @@ qdrant-client
 markdown-it-py
 mdit_plain
 nltk
-sqlalchemy
 pytest
-duckduckgo-search
+baidusearch
+pycountry
