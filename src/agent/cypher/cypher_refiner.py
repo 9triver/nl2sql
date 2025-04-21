@@ -42,7 +42,7 @@ class CypherRefinerAgent(Agent):
             1. delete unuseful infomation in the cypher statement. Like labels, properties and so on.
             2. make cypher staement simple, concise and elegant.
             3. infomation in Database is in Chinese, so the label, properties and so on should be chinese text.
-        - Continue the **Thought-Execute-Refine** loop until: the refined cypher statement can be executed with no error and can anwser user question.
+        - Continue the **Thought-Execute-Refine** loop until: the refined cypher statement can be executed with no error and can answer user question.
         - Only return a cypher statement.\
     """
     )

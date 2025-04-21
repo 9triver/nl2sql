@@ -26,9 +26,9 @@ from loguru import logger
 
 
 class EntitySpecifierAgent(Agent):
-    name = "intent-specifier"
+    name = "entity-specifier"
     role = dedent(
-        """Return some infomation in the Neo4j database about the entities in user's question. If you want detailed infomation, executing cypher statement is better."""
+        """I can map the entities in user's question to nodes or edges in database. I can't generate or execute cypher statements."""
     )
     description = None
     instructions = dedent(

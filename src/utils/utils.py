@@ -1,3 +1,4 @@
+from typing import Union, Iterator
 from agno.models.openai import OpenAILike
 from agent.cypher.cypher_team import CypherTeam
 from agent.cypher.entity_specifier import EntitySpecifierAgent
@@ -19,13 +20,14 @@ model = get_model(
 
 def get_cypher_team():
     entity_specifier = EntitySpecifierAgent(param=param, model=model, retries=100)
-    question_validator = QuestionValidatorAgent(model=model, retries=100)
-    cypher_team = CypherTeam(
-        param=param, model=model, members=[entity_specifier, question_validator]
-    )
+    cypher_team = CypherTeam(param=param, model=model, members=[entity_specifier])
     return cypher_team
 
 
 def get_validator():
-    question_validator = QuestionValidatorAgent(model=model, retries=100)
+    question_validator = QuestionValidatorAgent(model=model)
     return question_validator
+
+
+def get_validate_message(question: str, response: str):
+    return f"question: {question}\nresponse: {response}"

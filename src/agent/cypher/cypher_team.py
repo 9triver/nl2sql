@@ -95,8 +95,9 @@ class CypherTeam(Team):
         add_memory_references: Optional[bool] = None,
         enable_session_summaries: bool = False,
         add_session_summary_references: Optional[bool] = None,
-        enable_team_history: bool = True,
-        num_of_interactions_from_history: int = 2,
+        enable_team_history: bool = False,
+        num_of_interactions_from_history: int = None,
+        num_history_runs: int = 0,
         storage: Optional[Storage] = YamlStorage(
             dir_path=os.path.join(database_dir, "team_storage"), mode="team"
         ),
@@ -169,6 +170,7 @@ class CypherTeam(Team):
             add_session_summary_references=add_session_summary_references,
             enable_team_history=enable_team_history,
             num_of_interactions_from_history=num_of_interactions_from_history,
+            num_history_runs=num_history_runs,
             storage=storage,
             extra_data=extra_data,
             reasoning=reasoning,

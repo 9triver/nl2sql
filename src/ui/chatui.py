@@ -45,7 +45,8 @@ class ChatUI:
         except KeyboardInterrupt as e:
             raise e
         except Exception as e:
-            chat_message.content += "\n出错了!"
+            chat_message.content += "\n出错了!:\n"
+            chat_message.content += e
             yield chat_message
             return
 

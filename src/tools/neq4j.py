@@ -314,21 +314,21 @@ class Neo4jTools(Toolkit):
         entity_set: Set = set(),
     ) -> List[Dict[str, Any]]:
         """Formats a record (or nested data structure) into a JSON-compatible format and updates the provided graph visualization.
-        
+
         Args:
             data: The input data to be formatted, which can be of various types (e.g., primitive, dict, list, Node, Relationship).
             digraph (Digraph): A directed graph object for visualizing relationships (default: empty Digraph named "Result").
             entity_set (Set): A set to track processed entities (nodes/relationships) to avoid duplication (default: empty set).
-        
+
         Returns:
             Tuple containing:
                 - formatted_data: The formatted JSON-compatible data (dict or list).
                 - digraph: The updated directed graph with nodes/edges for visualization.
                 - entity_set: The updated set of processed entities.
-        
+
         Raises:
             TypeError: If the input data type is not supported.
-        
+
         Notes:
             - Handles primitive types (int, str, float), DateTime, dictionaries, lists, Path, Node, and Relationship.
             - For Node/Relationship objects, adds them as nodes/edges to the graph and ensures uniqueness via `entity_set`.

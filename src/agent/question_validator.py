@@ -10,7 +10,7 @@ from typing import (
     Union,
 )
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from agno.agent import Agent
 from agno.models.base import Model
 from agno.models.message import Message
@@ -22,6 +22,16 @@ from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 
 
+class ValidateResult(BaseModel):
+    success: str = Field(
+        ...,
+        description="Whether the response answer user's question, success or unsucess",
+    )
+    explanation: str = Field(
+        ..., description="Explain the reason behind your validation"
+    )
+
+
 class QuestionValidatorAgent(Agent):
     name = "question-validator"
     role = dedent(
@@ -30,9 +40,8 @@ class QuestionValidatorAgent(Agent):
     description = None
     instructions = dedent(
         """\
-        Validate whether the response has addressed the user's question in detail and accurately.
-        - If not, explain the reason for the unsuccessful response and provide a detailed follow-up plan. Ask leader continue to solve user's question.
-        - Else If successful, simply reply with "Answer successful."\
+        Validate whether the response has answer the user's question.
+        - If not, explain the reason for the unsuccessful response and provide a detailed follow-up plan. Ask leader continue to solve user's question.\
         """
     )
 
@@ -40,8 +49,8 @@ class QuestionValidatorAgent(Agent):
         self,
         *,
         model: Optional[Model] = None,
-        name: Optional[str] = name,
-        agent_id: Optional[str] = name,
+        name: Optional[str] = None,
+        agent_id: Optional[str] = None,
         introduction: Optional[str] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -75,41 +84,41 @@ class QuestionValidatorAgent(Agent):
         reasoning_min_steps: int = 1,
         reasoning_max_steps: int = 10,
         read_chat_history: bool = False,
-        search_knowledge: bool = False,
+        search_knowledge: bool = True,
         update_knowledge: bool = False,
         read_tool_call_history: bool = False,
         system_message: Optional[Union[str, Callable, Message]] = None,
         system_message_role: str = "system",
-        create_default_system_message: bool = False,
-        description: Optional[str] = description,
+        create_default_system_message: bool = True,
+        description: Optional[str] = None,
         goal: Optional[str] = None,
         instructions: Optional[Union[str, List[str], Callable]] = instructions,
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
         markdown: bool = False,
-        add_name_to_instructions: bool = True,
+        add_name_to_instructions: bool = False,
         add_datetime_to_instructions: bool = False,
         timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
         add_messages: Optional[List[Union[Dict, Message]]] = None,
         user_message: Optional[Union[List, Dict, str, Callable, Message]] = None,
         user_message_role: str = "user",
-        create_default_user_message: bool = False,
-        retries: int = 3,
+        create_default_user_message: bool = True,
+        retries: int = 0,
         delay_between_retries: int = 1,
         exponential_backoff: bool = False,
-        response_model: Optional[Type[BaseModel]] = None,
-        parse_response: bool = False,
+        response_model: Optional[Type[BaseModel]] = ValidateResult,
+        parse_response: bool = True,
         structured_outputs: Optional[bool] = None,
-        use_json_mode: bool = False,
+        use_json_mode: bool = True,
         save_response_to_file: Optional[str] = None,
-        stream: Optional[bool] = True,
-        stream_intermediate_steps: bool = True,
+        stream: Optional[bool] = None,
+        stream_intermediate_steps: bool = False,
         team: Optional[List[Agent]] = None,
         team_data: Optional[Dict[str, Any]] = None,
-        role: Optional[str] = role,
+        role: Optional[str] = None,
         respond_directly: bool = False,
-        add_transfer_instructions: bool = False,
+        add_transfer_instructions: bool = True,
         team_response_separator: str = "\n",
         debug_mode: bool = True,
         monitoring: bool = False,

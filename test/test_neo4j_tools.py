@@ -82,13 +82,25 @@ class TestNeo4jTools:
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_cypher_statement_paths(self):
+    def test_execute_cypher_statement_path_0(self):
         result = self.neo4j_tools.execute_cypher_statement(
             cypher=dedent(
                 """\
                 MATCH p = (a)-[*1..5]-(b)
                 WHERE a.name = '智能一体化运维支撑平台' AND b.name = '智能一体化运维支撑平台oracle主库生产环境数据源'
                 RETURN p, nodes(p) AS path_nodes, relationships(p) AS relationships\
+                """
+            )
+        )
+        assert isinstance(result, str)
+        print(result)
+
+    def test_execute_cypher_statement_path_1(self):
+        result = self.neo4j_tools.execute_cypher_statement(
+            cypher=dedent(
+                """\
+                MATCH (n1 {name: '智能一体化运维支撑平台'})-[:RELATIONSHIP]->(n2 {name:'智能一体化运维支撑平台oracle主库生产环境数据源'})
+                RETURN n1, n2, type(RELATIONSHIP)\
                 """
             )
         )
