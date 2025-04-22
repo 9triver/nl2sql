@@ -20,32 +20,18 @@ from agno.knowledge.agent import AgentKnowledge
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
-from tools.neq4j import Neo4jTools
 from param import Parameter
+from tools.neq4j import Neo4jTools
+from tools.baidu_search import BaiduSearchTools
+from tools.cypher_knowledge import CypherKnowledge
 from agno.utils.log import logger
 
 
-class CypherRefinerAgent(Agent):
-    name = "cypher-refiner"
-    role = dedent(
-        """Refine cypher statements based on user's questions. Please provide target cypher statements and user's question."""
-    )
+class ToolCallAgent(Agent):
+    name = "tool-caller"
+    role = dedent("""""")
     description = None
-    instructions = dedent(
-        """\
-        - Follow and Print the **Thought-Execute-Refine** chain-of-thought traces:
-            1. **Thought**: Reasoning based on the user question and previous refined cypher statement.
-            2. **Execute**: Execute the cypher statement.
-            3. **Refine**: Analyse the result of previous execution, And Refine the cypher statement which is possible wrong.
-        - Print And Answer in Chinese. But don't translate the infomation in database.
-        - Refine Principles:
-            1. delete unuseful infomation in the cypher statement. Like labels, properties and so on.
-            2. make cypher staement simple, concise and elegant.
-            3. infomation in Database is in Chinese, so the label, properties and so on should be chinese text.
-        - Continue the **Thought-Execute-Refine** loop until: the refined cypher statement can be executed with no error and can answer user question.
-        - Only return a cypher statement.\
-    """
-    )
+    instructions = dedent("""""")
 
     def __init__(
         self,
@@ -99,7 +85,7 @@ class CypherRefinerAgent(Agent):
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
         markdown: bool = False,
-        add_name_to_instructions: bool = True,
+        add_name_to_instructions: bool = False,
         add_datetime_to_instructions: bool = False,
         timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
@@ -129,15 +115,18 @@ class CypherRefinerAgent(Agent):
     ):
         if tools is None:
             tools = [
+                CypherKnowledge(),
+                BaiduSearchTools(),
                 Neo4jTools(
                     user=param.DATABASE_USER,
                     password=param.DATABASE_PASSWORD,
                     db_uri=param.DATABASE_URL,
                     database=param.DATABASE_NAME,
-                    execution=True,
                     labels=True,
                     relationships=True,
-                )
+                    syntax=True,
+                    execution=True,
+                ),
             ]
         super().__init__(
             model=model,

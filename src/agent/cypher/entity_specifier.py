@@ -22,7 +22,7 @@ from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from param import Parameter
 from tools.neq4j import Neo4jTools
-from loguru import logger
+from agno.utils.log import logger
 
 
 class EntitySpecifierAgent(Agent):

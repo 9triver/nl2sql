@@ -1,6 +1,7 @@
 from prompt_toolkit import PromptSession
 from workflow.nl2cypher import NL2CypherWorkflow
 from agno.utils.pprint import pprint_run_response
+from loguru import logger
 
 if __name__ == "__main__":
     workflow = NL2CypherWorkflow()
@@ -11,5 +12,5 @@ if __name__ == "__main__":
             continue
         if message == "Q":
             break
-        response = workflow.run(question=message)
-        pprint_run_response(response, markdown=True)
+        run_response = workflow.run(question=message)
+        pprint_run_response(run_response=run_response, markdown=True, show_time=True)

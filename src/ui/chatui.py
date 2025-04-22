@@ -1,17 +1,21 @@
 import gradio as gr
+from typing import Iterator, Union
 from gradio import ChatMessage
-from agent.cypher.cypher_team import CypherTeam
-from agno.run.team import TeamRunResponse
 from datetime import datetime
-from loguru import logger
+from agno.workflow import RunResponse
+from agno.run.team import TeamRunResponse
+from agno.utils.log import logger
+
+from workflow.nl2cypher import NL2CypherWorkflow
+from utils.utils import get_run_response
 
 USER_AVATAR = "./assets/user.png"
 FAVICON = "./assets/robot.png"
 
 
 class ChatUI:
-    def __init__(self, cypher_team: CypherTeam) -> None:
-        self.cypher_team = cypher_team
+    def __init__(self, workflow: NL2CypherWorkflow) -> None:
+        self.workflow = workflow
         self.currentDateAndTime = datetime.now()
         self.app = self._build_chatui(get_response=self.get_stream_response)
 
@@ -39,8 +43,8 @@ class ChatUI:
         )
 
         try:
-            response = await self.cypher_team.arun(
-                message=message, stream_intermediate_steps=True, stream=True
+            run_response: Iterator[Union[RunResponse, TeamRunResponse]] = (
+                self.workflow.run(question=message)
             )
         except KeyboardInterrupt as e:
             raise e
@@ -50,31 +54,12 @@ class ChatUI:
             yield chat_message
             return
 
-        async for chunk in response:
-            member_responses = chunk.member_responses
-            formatted_tool_calls = chunk.formatted_tool_calls
-            content = chunk.content
+        for resp in run_response:
+            run_response_content, other_message = get_run_response(run_response=resp)
 
-            if member_responses is not None and len(member_responses) > 0:
-                member_messages = [
-                    member_response.content for member_response in member_responses
-                ]
-                member_messages = (
-                    "Member Response:\n" + "\n".join(member_messages) + "\n"
-                )
-                if not think_message.content.endswith(member_messages):
-                    think_message.content += member_messages
-            elif formatted_tool_calls is not None:
-                tool_used_messages = (
-                    "Use tool:\n" + "\n".join(formatted_tool_calls) + "\n"
-                )
-                if not think_message.content.endswith(tool_used_messages):
-                    think_message.content += tool_used_messages
-            elif content is not None:
-                if content == "Run started":
-                    content += "\n"
-                chat_message.content += content
-
+            if run_response_content != "Run started":
+                chat_message.content += run_response_content
+            think_message.content += other_message
             if len(think_message.content) > 0:
                 yield [think_message, chat_message]
             else:
@@ -89,7 +74,7 @@ class ChatUI:
                 height=540,
                 avatar_images=(USER_AVATAR, FAVICON),
                 type="messages",
-                label="Cypher Team",
+                label="Cypher Workflow",
             )
             gr.ChatInterface(
                 fn=get_response,

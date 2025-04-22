@@ -1,7 +1,6 @@
 import os, re
 from typing import List, Optional
 
-from textwrap import dedent
 from agno.tools import Toolkit
 from haystack.components.converters import TextFileToDocument
 from haystack import Document as HaystackDocument

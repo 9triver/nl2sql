@@ -1,8 +1,8 @@
-from utils.utils import get_cypher_team
+from workflow.nl2cypher import NL2CypherWorkflow
 from ui.chatui import ChatUI
 from loguru import logger
 
 if __name__ == "__main__":
-    cypher_team = get_cypher_team()
-    chatui = ChatUI(cypher_team=cypher_team)
+    workflow = NL2CypherWorkflow()
+    chatui = ChatUI(workflow=workflow)
     chatui.run()

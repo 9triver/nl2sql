@@ -1,12 +1,27 @@
-from utils.utils import get_cypher_team
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from typing import Iterator, Union
+from agno.workflow import RunResponse
+from agno.run.team import TeamRunResponse
+
+from workflow.nl2cypher import NL2CypherWorkflow
+from utils.utils import get_run_response_content
 
 app = FastAPI()
 
-cypher_team = get_cypher_team()
+workflow = NL2CypherWorkflow()
 
 
 @app.get("/ask")
-async def ask(query: str):
-    response = cypher_team.run(query)
-    return {"response": response.content}
+async def ask(question: str):
+
+    def workflow_streamer():
+        run_response: Iterator[Union[RunResponse, TeamRunResponse]] = workflow.run(
+            question=question
+        )
+        for resp in run_response:
+            run_response_content = get_run_response_content(run_response=resp)
+            if run_response_content != "Run started":
+                yield run_response_content
+
+    return StreamingResponse(workflow_streamer())

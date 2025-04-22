@@ -13,6 +13,7 @@ from typing import (
 
 from agno.knowledge.agent import AgentKnowledge
 from agno.memory.v2.memory import Memory
+from agno.memory.v2.db.sqlite import SqliteMemoryDb
 from pydantic import BaseModel
 from agno.agent import Agent
 from agno.team.team import Team
@@ -50,6 +51,13 @@ class CypherTeam(Team):
         """Answer user's question in detail based on the real data in the neo4j database."""
     )
     database_dir = "./tmp"
+    storage = YamlStorage(dir_path=os.path.join(database_dir, "team"), mode="team")
+    memory = Memory(
+        db=SqliteMemoryDb(
+            table_name="team",
+            db_file=os.path.join(database_dir, "team/memory.db"),
+        )
+    )
 
     def __init__(
         self,
@@ -89,18 +97,16 @@ class CypherTeam(Team):
         response_model: Optional[Type[BaseModel]] = None,
         use_json_mode: bool = False,
         parse_response: bool = False,
-        memory: Optional[Union[TeamMemory, Memory]] = None,
-        enable_agentic_memory: bool = False,
-        enable_user_memories: bool = False,
-        add_memory_references: Optional[bool] = None,
+        memory: Optional[Union[TeamMemory, Memory]] = memory,
+        enable_agentic_memory: bool = True,
+        enable_user_memories: bool = True,
+        add_memory_references: Optional[bool] = True,
         enable_session_summaries: bool = False,
-        add_session_summary_references: Optional[bool] = None,
-        enable_team_history: bool = False,
+        add_session_summary_references: Optional[bool] = False,
+        enable_team_history: bool = True,
         num_of_interactions_from_history: int = None,
-        num_history_runs: int = 0,
-        storage: Optional[Storage] = YamlStorage(
-            dir_path=os.path.join(database_dir, "team_storage"), mode="team"
-        ),
+        num_history_runs: int = 3,
+        storage: Optional[Storage] = storage,
         extra_data: Optional[Dict[str, Any]] = None,
         reasoning: bool = False,
         reasoning_model: Optional[Model] = None,
