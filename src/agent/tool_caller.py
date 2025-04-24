@@ -11,7 +11,6 @@ from typing import (
 )
 
 from pydantic import BaseModel
-from agno.agent import Agent
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.memory.agent import AgentMemory
@@ -20,11 +19,13 @@ from agno.knowledge.agent import AgentKnowledge
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
+
 from param import Parameter
 from tools.neq4j import Neo4jTools
 from tools.baidu_search import BaiduSearchTools
 from tools.cypher_knowledge import CypherKnowledge
-from agno.utils.log import logger
+from base.agent import Agent
+from loguru import logger
 
 
 class ToolCallAgent(Agent):

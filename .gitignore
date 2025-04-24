@@ -9,6 +9,7 @@ qdrant_storage/
 *.out
 venv/
 tmp/
+.gradio/
 
 
 

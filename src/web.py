@@ -17,7 +17,7 @@ async def ask(question: str):
 
     def workflow_streamer():
         run_response: Iterator[Union[RunResponse, TeamRunResponse]] = workflow.run(
-            question=question
+            question=question, retries=3
         )
         for resp in run_response:
             run_response_content = get_run_response_content(run_response=resp)

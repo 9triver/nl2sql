@@ -4,7 +4,7 @@ from gradio import ChatMessage
 from datetime import datetime
 from agno.workflow import RunResponse
 from agno.run.team import TeamRunResponse
-from agno.utils.log import logger
+from loguru import logger
 
 from workflow.nl2cypher import NL2CypherWorkflow
 from utils.utils import get_run_response
@@ -44,7 +44,7 @@ class ChatUI:
 
         try:
             run_response: Iterator[Union[RunResponse, TeamRunResponse]] = (
-                self.workflow.run(question=message)
+                self.workflow.run(question=message, retries=3)
             )
         except KeyboardInterrupt as e:
             raise e

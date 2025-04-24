@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from agno.models.openai import OpenAILike
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
-from agno.utils.log import logger
+from loguru import logger
 
 from agent.cypher.cypher_team import CypherTeam
 from agent.cypher.entity_specifier import EntitySpecifierAgent

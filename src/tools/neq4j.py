@@ -12,7 +12,7 @@ from haystack.components.embedders import SentenceTransformersTextEmbedder
 from neo4j_haystack.client.neo4j_client import DEFAULT_NEO4J_DATABASE
 from tabulate import tabulate, TableFormat, Line
 from graphviz import Digraph
-from agno.utils.log import logger
+from loguru import logger
 
 
 class Neo4jTools(Toolkit):

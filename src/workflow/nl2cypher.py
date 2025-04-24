@@ -11,7 +11,8 @@ from agno.storage.base import Storage
 from agno.workflow import Workflow, RunResponse
 from agno.run.team import TeamRunResponse
 from storage.yaml import YamlStorage
-from agno.utils.log import logger, log_debug
+from agno.utils.log import log_debug
+from loguru import logger
 
 
 from agent.question_validator import ValidateResult

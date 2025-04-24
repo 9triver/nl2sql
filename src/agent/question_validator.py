@@ -11,7 +11,6 @@ from typing import (
 )
 
 from pydantic import BaseModel, Field
-from agno.agent import Agent
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.memory.agent import AgentMemory
@@ -20,6 +19,8 @@ from agno.knowledge.agent import AgentKnowledge
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
+
+from base.agent import Agent
 
 
 class ValidateResult(BaseModel):
@@ -104,7 +105,7 @@ class QuestionValidatorAgent(Agent):
         user_message: Optional[Union[List, Dict, str, Callable, Message]] = None,
         user_message_role: str = "user",
         create_default_user_message: bool = True,
-        retries: int = 0,
+        retries: int = 3,
         delay_between_retries: int = 1,
         exponential_backoff: bool = False,
         response_model: Optional[Type[BaseModel]] = ValidateResult,
