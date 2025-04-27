@@ -1,7 +1,6 @@
 from prompt_toolkit import PromptSession
 from workflow.nl2cypher import NL2CypherWorkflow
 from agno.utils.pprint import pprint_run_response
-from loguru import logger
 
 if __name__ == "__main__":
     workflow = NL2CypherWorkflow()

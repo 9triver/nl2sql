@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Tuple, Set, List, Dict, Any
+from typing import Optional, Tuple, Set, List, Dict, Any, Callable
 from textwrap import dedent
 from agno.tools import Toolkit
 from neo4j import GraphDatabase, basic_auth
@@ -12,7 +12,6 @@ from haystack.components.embedders import SentenceTransformersTextEmbedder
 from neo4j_haystack.client.neo4j_client import DEFAULT_NEO4J_DATABASE
 from tabulate import tabulate, TableFormat, Line
 from graphviz import Digraph
-from loguru import logger
 
 
 class Neo4jTools(Toolkit):
@@ -30,14 +29,18 @@ class Neo4jTools(Toolkit):
 
     def __init__(
         self,
-        user: str,
-        password: str,
         name: str = name,
+        tools: List[Callable] = [],
         instructions: Optional[str] = None,
         add_instructions: bool = False,
+        include_tools: Optional[list[str]] = None,
+        exclude_tools: Optional[list[str]] = None,
         cache_results: bool = False,
         cache_ttl: int = 3600,
         cache_dir: Optional[str] = None,
+        auto_register: bool = False,
+        user: str = "",
+        password: str = "",
         database: str = DEFAULT_NEO4J_DATABASE,
         embedding_dim: int = 768,
         embedding_field: str = "embedding",
@@ -54,11 +57,15 @@ class Neo4jTools(Toolkit):
     ):
         super().__init__(
             name=name,
+            tools=tools,
             instructions=instructions,
             add_instructions=add_instructions,
+            include_tools=include_tools,
+            exclude_tools=exclude_tools,
             cache_results=cache_results,
             cache_ttl=cache_ttl,
             cache_dir=cache_dir,
+            auto_register=auto_register,
         )
         self.user = user
         self.password = password
@@ -88,13 +95,13 @@ class Neo4jTools(Toolkit):
         if syntax:
             self.register(self.check_cypher_syntax)
         if execution:
-            self.register(self.execute_cypher_statement)
+            self.register(self.execute_cypher)
 
     def show_indexes(self) -> str:
-        """Use this function to show the indexes in the Neo4j database.
+        """使用此函数显示Neo4j数据库中的索引。
 
-        Returns:
-            str: A JSON-formatted string containing the index information, with certain keys removed for clarity.
+        返回:
+            str: 包含索引信息的JSON格式字符串，出于简洁性考虑移除了部分键值。
         """
         result, _, _ = self._execute_cypher_statement(cypher="SHOW INDEXES")
         # filter
@@ -109,13 +116,13 @@ class Neo4jTools(Toolkit):
                 "readCount",
             ],
         )
-        return json.dumps(obj=result, indent=2, ensure_ascii=False)
+        return json.dumps(obj=result, ensure_ascii=False, indent=2)
 
     def show_labels(self) -> str:
-        """Use this function to show all labels' infomation in neo4j database.
+        """使用此函数显示Neo4j数据库中所有标签的信息。
 
-        Returns:
-            str: Node labels and their counts in JSON format.
+        返回:
+            str: 以JSON格式返回节点标签及其数量信息。
         """
         labels_table, _, _ = self._execute_cypher_statement(
             dedent(
@@ -130,10 +137,10 @@ class Neo4jTools(Toolkit):
         return f"Node labels:{labels_table}"
 
     def show_relationships(self) -> str:
-        """Use this function to show all relationships' infomation in neo4j database.
+        """使用此函数显示Neo4j数据库中所有关系的信息。
 
-        Returns:
-            str: Relationship types and their counts in a tabulated format.
+        返回:
+            str: 以表格形式展示的关系类型及其数量的字符串。
         """
         records, _, _ = self._execute_cypher_statement(
             cypher="CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
@@ -164,13 +171,13 @@ class Neo4jTools(Toolkit):
         return f"Relationship types:{rel_table}"
 
     def get_similar_node(self, query: str) -> str:
-        """Use this function to find nodes similar to a given query.
+        """使用该函数查找与给定查询相似的节点。
 
-        Args:
-            query (str): The query string to find similar nodes for.
+        参数:
+            query (str): 用于查找相似节点的查询字符串
 
-        Returns:
-            str: A JSON-formatted string containing the most similar nodes, sorted by relevance.
+        返回:
+            str: JSON格式字符串，包含按相关性排序的最相似节点
         """
         top_k = 1
         # get all index names
@@ -209,14 +216,13 @@ class Neo4jTools(Toolkit):
         return json.dumps(obj=formatted_records, ensure_ascii=False, indent=2)
 
     def check_cypher_syntax(self, cypher: str) -> str:
-        """Use this function to check the syntax of a cypher statement.
+        """使用该函数验证Cypher语句的语法是否正确。
 
         Args:
-            cypher (str): The cypher statement string to be validated.
+            cypher (str): 待验证的Cypher语句字符串
 
         Returns:
-            str: If the cypher statement contains a syntax error, returns the error message.
-                 Otherwise, returns "No Cypher Syntax Error".
+            str: 若存在语法错误则返回错误信息，否则返回 "No Cypher Syntax Error"
         """
         try:
             _, _, summary = self._execute_cypher_statement(
@@ -226,17 +232,17 @@ class Neo4jTools(Toolkit):
             return e.message
         return f"No Cypher Syntax Error, Summary:{summary}"
 
-    def execute_cypher_statement(self, cypher: str) -> str:
-        """Use this function to execute a cypher statement and return the results.
+    def execute_cypher(self, cypher: str) -> str:
+        """执行Cypher语句并返回结果。
 
-        Args:
-            cypher (str): The cypher statement to execute.
+        参数:
+            cypher (str): 要执行的Cypher查询语句
 
-        Returns:
+        返回:
             str:
-                - If the execute results contain a graph (relationships), returns the graph source (e.g., DOT format).
-                - If the execute results are plain records, returns them as a JSON-formatted string.
-                - If there's a syntax error, returns the error message.
+                - 如果结果包含图形关系，返回图数据源（如DOT格式）
+                - 如果结果是普通记录，返回JSON格式字符串
+                - 如果存在语法错误，返回错误信息
         """
         try:
             formatted_records, digraph, formatted_summary = (
@@ -254,16 +260,16 @@ class Neo4jTools(Toolkit):
     def _execute_cypher_statement(
         self, cypher: str, parameters=None
     ) -> Tuple[List[Dict[str, Any]], Digraph]:
-        """Execute a cypher statement and return the formatted results as well as a graph representation.
+        """执行Cypher查询语句并返回格式化结果和图形表示。
 
-        Args:
-            cypher (str): The cypher statement to execute.
-            parameters (dict, optional): Optional parameters for the cypher statement. Defaults to None.
+        参数:
+            cypher (str): 要执行的Cypher查询语句
+            parameters (dict, optional): 可选的查询参数，默认为None
 
-        Returns:
+        返回:
             Tuple[List[Dict[str, Any]], Digraph]:
-                - A list of dictionaries representing formatted execute cypher results.
-                - A Digraph object representing the relationships in the results.
+                - 字典组成的列表，表示格式化后的查询结果
+                - 表示查询结果关系的Digraph对象
         """
         parameters = parameters or {}
 
@@ -284,16 +290,16 @@ class Neo4jTools(Toolkit):
         return formatted_summary
 
     def _format_records(self, keys, records) -> Tuple[List[Dict[str, Any]], Digraph]:
-        """Format raw database records into structured dictionaries and a graph representation.
+        """将原始数据库记录格式化为结构化字典和图表示。
 
         Args:
-            keys: The keys (field names) from the cypher result.
-            records: The raw records returned by the database.
+            keys: Cypher查询结果中的键（字段名）
+            records: 数据库返回的原始记录
 
         Returns:
             Tuple[List[Dict[str, Any]], Digraph]:
-                - A list of dictionaries with formatted records.
-                - A Digraph object representing relationships between nodes.
+                - 格式化的记录字典列表
+                - 表示节点关系的Digraph图对象
         """
         formatted_records = []
         for record in records:
@@ -312,25 +318,25 @@ class Neo4jTools(Toolkit):
         digraph: Digraph = Digraph(name="Result"),
         entity_set: Set = set(),
     ) -> List[Dict[str, Any]]:
-        """Formats a record (or nested data structure) into a JSON-compatible format and updates the provided graph visualization.
+        """将记录（或嵌套数据结构）格式化为JSON兼容格式，并更新提供的图表可视化
 
-        Args:
-            data: The input data to be formatted, which can be of various types (e.g., primitive, dict, list, Node, Relationship).
-            digraph (Digraph): A directed graph object for visualizing relationships (default: empty Digraph named "Result").
-            entity_set (Set): A set to track processed entities (nodes/relationships) to avoid duplication (default: empty set).
+        参数:
+            data: 需要格式化的输入数据，支持多种类型（基本类型、字典、列表、Node、Relationship等）
+            digraph (Digraph): 用于可视化关系的有向图对象（默认：名为"Result"的空图）
+            entity_set (Set): 用于跟踪已处理实体（节点/关系）的集合，避免重复处理（默认：空集合）
 
-        Returns:
-            Tuple containing:
-                - formatted_data: The formatted JSON-compatible data (dict or list).
-                - digraph: The updated directed graph with nodes/edges for visualization.
-                - entity_set: The updated set of processed entities.
+        返回:
+            包含以下元素的元组:
+                - formatted_data: 格式化后的JSON兼容数据（字典或列表）
+                - digraph: 更新后的关系图对象
+                - entity_set: 更新后的已处理实体集合
 
-        Raises:
-            TypeError: If the input data type is not supported.
+        异常:
+            TypeError: 当输入数据类型不被支持时抛出
 
-        Notes:
-            - Handles primitive types (int, str, float), DateTime, dictionaries, lists, Path, Node, and Relationship.
-            - For Node/Relationship objects, adds them as nodes/edges to the graph and ensures uniqueness via `entity_set`.
+        注意:
+            - 支持处理基本类型（int/str/float）、DateTime、字典、列表、Path、Node和Relationship
+            - 对于Node/Relationship对象，会将其添加为图中的节点/边，并通过`entity_set`确保唯一性
         """
         if data is None or isinstance(data, (int, str, float)):
             return data, digraph, entity_set
@@ -397,21 +403,21 @@ class Neo4jTools(Toolkit):
                 digraph.edge(
                     tail_name=formatted_start_node["name"],
                     head_name=formatted_end_node["name"],
-                    attrs=json.dumps(obj=formatted_data, ensure_ascii=False),
+                    attrs=json.dumps(obj=formatted_data, ensure_ascii=False, indent=2),
                 )
             return formatted_data, digraph, entity_set
         else:
             raise TypeError(f"Unknow Type {type(data)}")
 
     def _remove_keys(self, obj, keys_to_remove):
-        """Recursively remove specified keys from a nested dictionary or list.
+        """递归地从嵌套字典或列表中移除指定的键
 
-        Args:
-            obj (dict | list): The input object (dictionary or list) to process.
-            keys_to_remove (set | list): Collection of keys to remove from the object.
+        参数:
+            obj (dict | list): 要处理的输入对象（字典或列表）
+            keys_to_remove (set | list): 需要从对象中移除的键集合
 
-        Returns:
-            dict | list: A new object with the specified keys removed recursively.
+        返回:
+            dict | list: 递归移除指定键后的新对象
         """
         if isinstance(obj, dict):
             return {
@@ -425,14 +431,14 @@ class Neo4jTools(Toolkit):
             return obj
 
     def _extract_keys(self, obj, keys_to_keep):
-        """Recursively extract and retain only the specified keys from a nested dictionary or list.
+        """递归地从嵌套字典或列表中提取并仅保留指定的键
 
-        Args:
-            obj (dict | list): The input object (dictionary or list) to process.
-            keys_to_keep (set | list): Collection of keys to retain in the object.
+        参数:
+            obj (dict | list): 要处理的输入对象（字典或列表）
+            keys_to_keep (set | list): 需要保留的键集合
 
-        Returns:
-            dict | list: A new object with only the specified keys retained recursively.
+        返回:
+            dict | list: 递归处理后仅包含指定键的新对象
         """
         if isinstance(obj, dict):
             filtered = {}

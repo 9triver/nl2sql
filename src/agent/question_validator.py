@@ -26,24 +26,21 @@ from base.agent import Agent
 class ValidateResult(BaseModel):
     success: str = Field(
         ...,
-        description="Whether the response answer user's question, success or unsucess",
+        description="判断响应是否成功解答了用户的问题（成功/未成功）",
     )
-    explanation: str = Field(
-        ..., description="Explain the reason behind your validation"
-    )
+    explanation: str = Field(..., description="解释验证结论的详细依据")
 
 
 class QuestionValidatorAgent(Agent):
     name = "question-validator"
     role = dedent(
-        """Validate whether the team leader has successfully answered the user's question. Please provide me with the user's original question and your response."""
+        """验证团队负责人是否成功解答了用户的问题。请提供用户的原始问题及对应的响应内容。"""
     )
     description = None
     instructions = dedent(
         """\
-        Validate whether the response has answer the user's question.
-        - If not, explain the reason for the unsuccessful response and provide a detailed follow-up plan. Ask leader continue to solve user's question.\
-        """
+        验证响应内容是否完整解决了用户的问题：
+        - 若未解决，请详细说明原因并提供后续跟进计划，要求负责人继续解决用户的问题"""
     )
 
     def __init__(
@@ -79,6 +76,7 @@ class QuestionValidatorAgent(Agent):
         show_tool_calls: bool = True,
         tool_call_limit: Optional[int] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
+        tool_hooks: Optional[List[Callable]] = None,
         reasoning: bool = False,
         reasoning_model: Optional[Model] = None,
         reasoning_agent: Optional[Agent] = None,
@@ -156,6 +154,7 @@ class QuestionValidatorAgent(Agent):
             show_tool_calls=show_tool_calls,
             tool_call_limit=tool_call_limit,
             tool_choice=tool_choice,
+            tool_hooks=tool_hooks,
             reasoning=reasoning,
             reasoning_model=reasoning_model,
             reasoning_agent=reasoning_agent,

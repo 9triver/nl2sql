@@ -25,7 +25,6 @@ from tools.neq4j import Neo4jTools
 from tools.baidu_search import BaiduSearchTools
 from tools.cypher_knowledge import CypherKnowledge
 from base.agent import Agent
-from loguru import logger
 
 
 class ToolCallAgent(Agent):
@@ -68,6 +67,7 @@ class ToolCallAgent(Agent):
         show_tool_calls: bool = True,
         tool_call_limit: Optional[int] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
+        tool_hooks: Optional[List[Callable]] = None,
         reasoning: bool = False,
         reasoning_model: Optional[Model] = None,
         reasoning_agent: Optional[Agent] = None,
@@ -160,6 +160,7 @@ class ToolCallAgent(Agent):
             show_tool_calls=show_tool_calls,
             tool_call_limit=tool_call_limit,
             tool_choice=tool_choice,
+            tool_hooks=tool_hooks,
             reasoning=reasoning,
             reasoning_model=reasoning_model,
             reasoning_agent=reasoning_agent,

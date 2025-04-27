@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from agno.models.openai import OpenAILike
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
-from loguru import logger
 
 from agent.cypher.cypher_team import CypherTeam
 from agent.cypher.entity_specifier import EntitySpecifierAgent
@@ -25,7 +24,7 @@ model = get_model(
 
 
 def get_cypher_team():
-    entity_specifier = EntitySpecifierAgent(param=param, model=model, retries=100)
+    entity_specifier = EntitySpecifierAgent(param=param, model=model, retries=000)
     cypher_team = CypherTeam(param=param, model=model, members=[entity_specifier])
     return cypher_team
 
@@ -36,7 +35,7 @@ def get_validator():
 
 
 def get_validate_message(question: str, response: str):
-    return f"question: {question}\nresponse: {response}"
+    return f"问题: {question}\n回答: {response}"
 
 
 def get_run_response_content(run_response: Union[RunResponse, TeamRunResponse]):
@@ -51,7 +50,9 @@ def get_run_response_content(run_response: Union[RunResponse, TeamRunResponse]):
             exclude_none=True
         )
     else:
-        single_response_content = json.dumps(run_response.content)
+        single_response_content = json.dumps(
+            obj=run_response.content, ensure_ascii=False, indent=2
+        )
     return single_response_content
 
 
@@ -70,10 +71,10 @@ def get_run_response(run_response: Union[RunResponse, TeamRunResponse]):
             get_run_response_content(run_response=member_response)
             for member_response in member_responses
         ]
-        member_messages = "Member Response:\n" + "\n".join(member_messages) + "\n"
+        member_messages = "成员回答:\n" + "\n".join(member_messages) + "\n"
         other_message += member_messages
     if formatted_tool_calls is not None:
-        tool_used_messages = "Use tool:\n" + "\n".join(formatted_tool_calls) + "\n"
+        tool_used_messages = "使用工具:\n" + "\n".join(formatted_tool_calls) + "\n"
         other_message += tool_used_messages
 
     return run_response_content, other_message

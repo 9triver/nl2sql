@@ -23,28 +23,29 @@ from agno.tools.toolkit import Toolkit
 from tools.neq4j import Neo4jTools
 from param import Parameter
 from base.agent import Agent
-from loguru import logger
 
 
 class CypherRefinerAgent(Agent):
     name = "cypher-refiner"
     role = dedent(
-        """Refine cypher statements based on user's questions. Please provide target cypher statements and user's question."""
+        """Cypher语句优化专家。请提供目标Cypher语句和用户的问题，我将基于问题进行优化。"""
     )
     description = None
     instructions = dedent(
         """\
-        - Follow and Print the **Thought-Execute-Refine** chain-of-thought traces:
-            1. **Thought**: Reasoning based on the user question and previous refined cypher statement.
-            2. **Execute**: Execute the cypher statement.
-            3. **Refine**: Analyse the result of previous execution, And Refine the cypher statement which is possible wrong.
-        - Print And Answer in Chinese. But don't translate the infomation in database.
-        - Refine Principles:
-            1. delete unuseful infomation in the cypher statement. Like labels, properties and so on.
-            2. make cypher staement simple, concise and elegant.
-            3. infomation in Database is in Chinese, so the label, properties and so on should be chinese text.
-        - Continue the **Thought-Execute-Refine** loop until: the refined cypher statement can be executed with no error and can answer user question.
-        - Only return a cypher statement.\
+        - 遵循并打印**思考-执行-优化**的思维链过程：
+            1. **思考**：基于用户问题和前次优化结果进行推理
+            2. **执行**：执行当前Cypher语句
+            3. **优化**：分析执行结果，改进可能错误的Cypher语句
+        - 使用中文回答，但不要翻译数据库中的原始信息
+        - 优化原则：
+            1. 删除Cypher中无用信息（如多余的标签、属性等）
+            2. 保持语句简洁优雅
+            3. 确保中文元素（标签/属性等）与数据库中的中文存储一致
+        - 持续**思考-执行-优化**循环，直到：
+            - Cypher语句可正确执行
+            - 能准确回答用户问题
+        - 最终仅返回优化后的Cypher语句\
     """
     )
 
@@ -82,6 +83,7 @@ class CypherRefinerAgent(Agent):
         show_tool_calls: bool = True,
         tool_call_limit: Optional[int] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
+        tool_hooks: Optional[List[Callable]] = None,
         reasoning: bool = False,
         reasoning_model: Optional[Model] = None,
         reasoning_agent: Optional[Agent] = None,
@@ -171,6 +173,7 @@ class CypherRefinerAgent(Agent):
             show_tool_calls=show_tool_calls,
             tool_call_limit=tool_call_limit,
             tool_choice=tool_choice,
+            tool_hooks=tool_hooks,
             reasoning=reasoning,
             reasoning_model=reasoning_model,
             reasoning_agent=reasoning_agent,

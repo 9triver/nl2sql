@@ -15,10 +15,57 @@ from agno.media import Audio, File, Image, Video
 from agno.memory.v2.memory import Memory, SessionSummary
 from agno.models.base import Model
 from agno.models.message import Message
+from agno.tools.function import Function
+from agno.tools.toolkit import Toolkit
 from agno.utils.log import log_warning
 
 
 class Team(AgnoTeam):
+    def get_members_system_message_content(self, indent: int = 0) -> str:
+        system_message_content = ""
+        for idx, member in enumerate(self.members):
+            url_safe_member_id = self._get_member_id(member)
+
+            if isinstance(member, Team):
+                system_message_content += f"{indent * ' '} - 团队: {member.name}\n"
+                system_message_content += f"{indent * ' '} - ID: {url_safe_member_id}\n"
+                if member.members is not None:
+                    system_message_content += member.get_members_system_message_content(
+                        indent=indent + 2
+                    )
+            else:
+                system_message_content += f"{indent * ' '} - 代理 {idx + 1}:\n"
+                if member.name is not None:
+                    system_message_content += (
+                        f"{indent * ' '}   - ID: {url_safe_member_id}\n"
+                    )
+                    system_message_content += (
+                        f"{indent * ' '}   - 名称: {member.name}\n"
+                    )
+                if member.role is not None:
+                    system_message_content += (
+                        f"{indent * ' '}   - 角色: {member.role}\n"
+                    )
+                if member.tools is not None and self.add_member_tools_to_system_message:
+                    system_message_content += f"{indent * ' '}   - 成员可用工具:\n"
+                    for _tool in member.tools:
+                        if isinstance(_tool, Toolkit):
+                            for _func in _tool.functions.values():
+                                if _func.entrypoint:
+                                    system_message_content += (
+                                        f"{indent * ' '}    - {_func.name}\n"
+                                    )
+                        elif isinstance(_tool, Function) and _tool.entrypoint:
+                            system_message_content += (
+                                f"{indent * ' '}    - {_tool.name}\n"
+                            )
+                        elif callable(_tool):
+                            system_message_content += (
+                                f"{indent * ' '}    - {_tool.__name__}\n"
+                            )
+
+        return system_message_content
+
     def get_system_message(
         self,
         session_id: str,
@@ -52,85 +99,83 @@ class Team(AgnoTeam):
         additional_information: List[str] = []
         # 1.3.1 Add instructions for using markdown
         if self.markdown and self.response_model is None:
-            additional_information.append("Use markdown to format your answers.")
+            additional_information.append("使用Markdown格式来编写你的回答。")
         # 1.3.2 Add the current datetime
         if self.add_datetime_to_instructions:
             from datetime import datetime
 
-            additional_information.append(f"The current time is {datetime.now()}")
+            additional_information.append(f"当前时间是{datetime.now()}")
 
         # 2 Build the default system message for the Agent.
         system_message_content: str = ""
-        system_message_content += (
-            "You are the leader of a team and sub-teams of AI Agents.\n"
-        )
-        system_message_content += (
-            "Your task is to coordinate the team to complete the user's request.\n"
-        )
+        system_message_content += "你是一个AI智能体团队及子团队的领导者。\n"
+        system_message_content += "你的任务是协调团队完成用户的请求。\n"
 
-        system_message_content += "\nHere are the members in your team:\n"
+        system_message_content += "\n以下是团队中的成员：\n"
         system_message_content += "<team_members>\n"
         system_message_content += self.get_members_system_message_content()
         if self.get_member_information_tool:
-            system_message_content += "If you need to get information about your team members, you can use the `get_member_information` tool at any time.\n"
+            system_message_content += (
+                "如需获取团队成员信息，可随时使用`get_member_information`工具。\n"
+            )
         system_message_content += "</team_members>\n"
 
         system_message_content += "\n<how_to_respond>\n"
         if self.mode == "coordinate":
             system_message_content += (
-                "- You can either respond directly or transfer tasks to members in your team with the highest likelihood of completing the user's request.\n"
-                "- Carefully analyze the tools available to the members and their roles before transferring tasks.\n"
-                "- You cannot use a member tool directly. You can only transfer tasks to members.\n"
-                "- When you transfer a task to another member, make sure to include:\n"
-                "  - member_id (str): The ID of the member to forward the task to.\n"
-                "  - task_description (str): A clear description of the task.\n"
-                "  - expected_output (str): The expected output.\n"
-                "- You can transfer tasks to multiple members at once.\n"
-                "- You must always analyze the responses from members before responding to the user.\n"
-                "- After analyzing the responses from the members, if you feel the task has been completed, you can stop and respond to the user.\n"
-                "- If you are not satisfied with the responses from the members, you should re-assign the task.\n"
+                "- 您可以直接响应或将任务转移给团队中最有可能完成用户请求的成员\n"
+                "- 在转移任务前请仔细分析成员可用的工具及其角色\n"
+                "- 您不能直接使用成员工具，只能通过转移任务的方式\n"
+                "- 转移任务时必须包含以下要素：\n"
+                "  - member_id (str): 接收任务的成员ID\n"
+                "  - task_description (str): 清晰的任务描述\n"
+                "  - expected_output (str): 期望的输出结果\n"
+                "- 可以同时向多个成员转移任务\n"
+                "- 在响应用户前必须分析成员的响应结果\n"
+                "- 如果认为任务已完成，请停止流程并响应用户\n"
+                "- 如果对成员响应不满意，应重新分配任务\n"
             )
         elif self.mode == "route":
             system_message_content += (
-                "- You can either respond directly or forward tasks to members in your team with the highest likelihood of completing the user's request.\n"
-                "- Carefully analyze the tools available to the members and their roles before forwarding tasks.\n"
-                "- When you forward a task to another Agent, make sure to include:\n"
-                "  - member_id (str): The ID of the member to forward the task to.\n"
-                "  - expected_output (str): The expected output.\n"
-                "- You can forward tasks to multiple members at once.\n"
+                "- 您可以直接响应或将任务转发给最合适的团队成员\n"
+                "- 转发前请仔细分析成员的工具和角色\n"
+                "- 转发任务时必须包含：\n"
+                "  - member_id (str): 接收成员的ID\n"
+                "  - expected_output (str): 期望的输出结果\n"
+                "- 支持同时向多个成员转发任务\n"
             )
         elif self.mode == "collaborate":
             system_message_content += (
-                "- You can either respond directly or use the `run_member_agents` tool to run all members in your team to get a collaborative response.\n"
-                "- To run the members in your team, call `run_member_agents` ONLY once. This will run all members in your team.\n"
-                "- Analyze the responses from all members and evaluate whether the task has been completed.\n"
-                "- If you feel the task has been completed, you can stop and respond to the user.\n"
+                "- 您可以直接响应或使用`run_member_agents`工具发起团队协作\n"
+                "- 协作时请确保只调用`run_member_agents`一次\n"
+                "- 分析所有成员的响应并评估任务完成情况\n"
+                "- 确认任务完成后请及时响应用户\n"
             )
         system_message_content += "</how_to_respond>\n\n"
 
         if self.enable_agentic_context:
             system_message_content += "<shared_context>\n"
-            system_message_content += "You have access to a shared context that will be shared with all members of the team.\n"
-            system_message_content += "Use this shared context to improve inter-agent communication and coordination.\n"
-            system_message_content += "It is important that you update the shared context as often as possible.\n"
             system_message_content += (
-                "To update the shared context, use the `set_shared_context` tool.\n"
+                "你可以访问一个将被所有团队成员共享的上下文空间。\n"
+            )
+            system_message_content += (
+                "请利用这个共享上下文来提升智能体之间的沟通与协作效率。\n"
+            )
+            system_message_content += "请务必尽可能频繁地更新共享上下文内容。\n"
+            system_message_content += (
+                "要更新共享上下文，请使用 `set_shared_context` 工具。\n"
             )
             system_message_content += "</shared_context>\n\n"
 
         if self.name is not None:
-            system_message_content += f"Your name is: {self.name}\n\n"
+            system_message_content += f"你的名称是：{self.name}\n\n"
 
         if self.success_criteria:
-            system_message_content += (
-                "Your task is successful when the following criteria is met:\n"
-            )
+            system_message_content += "当满足以下标准时，表示任务成功完成：\n"
             system_message_content += "<success_criteria>\n"
             system_message_content += f"{self.success_criteria}\n"
             system_message_content += "</success_criteria>\n"
-            system_message_content += (
-                "Stop the team run when the success_criteria is met.\n\n"
-            )
+            system_message_content += "当成功标准达成时，请终止团队运行。\n\n"
 
         # Attached media
         if (
@@ -140,17 +185,15 @@ class Team(AgnoTeam):
             or files is not None
         ):
             system_message_content += "<attached_media>\n"
-            system_message_content += (
-                "You have the following media attached to your message:\n"
-            )
+            system_message_content += "您的消息包含以下附件类型：\n"
             if audio is not None and len(audio) > 0:
-                system_message_content += " - Audio\n"
+                system_message_content += " - 音频\n"
             if images is not None and len(images) > 0:
-                system_message_content += " - Images\n"
+                system_message_content += " - 图片\n"
             if videos is not None and len(videos) > 0:
-                system_message_content += " - Videos\n"
+                system_message_content += " - 视频\n"
             if files is not None and len(files) > 0:
-                system_message_content += " - Files\n"
+                system_message_content += " - 文件\n"
             system_message_content += "</attached_media>\n\n"
 
         # Then add memories to the system prompt
@@ -160,7 +203,7 @@ class Team(AgnoTeam):
                     user_id = "default"
                 user_memories = self.memory.memories.get(user_id, {})  # type: ignore
                 if user_memories and len(user_memories) > 0:
-                    system_message_content += "You have access to memories from previous interactions with the user that you can use:\n\n"
+                    system_message_content += "您可以访问之前与用户互动中的记忆：\n\n"
                     system_message_content += "<memories_from_previous_interactions>"
                     for _memory in user_memories.values():  # type: ignore
                         system_message_content += f"\n- {_memory.memory}"
@@ -168,23 +211,23 @@ class Team(AgnoTeam):
                         "\n</memories_from_previous_interactions>\n\n"
                     )
                     system_message_content += (
-                        "Note: this information is from previous interactions and may be updated in this conversation. "
-                        "You should always prefer information from this conversation over the past memories.\n\n"
+                        "注意：这些信息来自之前的互动，可能会在本次对话中更新。"
+                        "您应始终优先使用本次对话中的信息而非历史记忆。\n\n"
                     )
                 else:
                     system_message_content += (
-                        "You have the capability to retain memories from previous interactions with the user, "
-                        "but have not had any interactions with the user yet.\n"
+                        "您具备保留与用户之前互动记忆的能力，"
+                        "但当前尚未有任何互动记录。\n"
                     )
 
                 if self.enable_agentic_memory:
                     system_message_content += (
-                        "You have access to the `update_user_memory` tool.\n"
-                        "You can use the `update_user_memory` tool to add new memories, update existing memories, delete memories, or clear all memories.\n"
-                        "Memories should include details that could personalize ongoing interactions with the user.\n"
-                        "Use this tool to add new memories or update existing memories that you identify in the conversation.\n"
-                        "Use this tool if the user asks to update their memory, delete a memory, or clear all memories.\n"
-                        "If you use the `update_user_memory` tool, remember to pass on the response to the user.\n\n"
+                        "您可以使用`update_user_memory`记忆管理工具。\n"
+                        "该工具支持新增记忆、更新现有记忆、删除特定记忆或清空所有记忆。\n"
+                        "记忆应包含能够个性化用户长期互动的重要细节。\n"
+                        "当识别到对话中有需要记录的新信息时，请主动使用此工具。\n"
+                        "当用户明确要求更新、删除记忆或清空记忆时，必须使用此工具。\n"
+                        "使用记忆工具后，请确保将操作结果反馈给用户。\n\n"
                     )
 
             # Then add a summary of the interaction to the system prompt
@@ -193,17 +236,15 @@ class Team(AgnoTeam):
                     user_id = "default"
                 session_summary: SessionSummary = self.memory.summaries.get(user_id, {}).get(session_id, None)  # type: ignore
                 if session_summary is not None:
-                    system_message_content += (
-                        "Here is a brief summary of your previous interactions:\n\n"
-                    )
+                    system_message_content += "以下是你之前交互的简要摘要：\n\n"
                     system_message_content += "<summary_of_previous_interactions>\n"
                     system_message_content += session_summary.summary
                     system_message_content += (
                         "\n</summary_of_previous_interactions>\n\n"
                     )
                     system_message_content += (
-                        "Note: this information is from previous interactions and may be outdated. "
-                        "You should ALWAYS prefer information from this conversation over the past summary.\n\n"
+                        "注意：这些信息来自之前的交互，可能已过时。"
+                        "你应始终优先考虑本次对话中的信息，而非过去的摘要。\n\n"
                     )
 
         if self.description is not None:
@@ -258,64 +299,6 @@ class Team(AgnoTeam):
 
         return Message(role="system", content=system_message_content.strip())
 
-    def _get_user_message(
-        self,
-        message: Union[str, List, Dict, Message],
-        audio: Optional[Sequence[Audio]] = None,
-        images: Optional[Sequence[Image]] = None,
-        videos: Optional[Sequence[Video]] = None,
-        files: Optional[Sequence[File]] = None,
-        **kwargs,
-    ):
-        # Build user message if message is None, str or list
-        user_message_content: str = ""
-        if isinstance(message, str) or isinstance(message, list):
-            if self.add_state_in_messages:
-                if isinstance(message, str):
-                    user_message_content = self._format_message_with_state_variables(
-                        message
-                    )
-                elif isinstance(message, list):
-                    user_message_content = "\n".join(
-                        [
-                            self._format_message_with_state_variables(msg)
-                            for msg in message
-                        ]
-                    )
-            else:
-                if isinstance(message, str):
-                    user_message_content = message
-                else:
-                    user_message_content = "\n".join(message)
-
-            # Add context to user message
-            if self.add_context and self.context is not None:
-                user_message_content += "\n\n<context>\n"
-                user_message_content += (
-                    self._convert_context_to_string(self.context) + "\n"
-                )
-                user_message_content += "</context>"
-
-            return Message(
-                role="user",
-                content=user_message_content,
-                audio=audio,
-                images=images,
-                videos=videos,
-                files=files,
-                **kwargs,
-            )
-
-        # 3.2 If message is provided as a Message, use it directly
-        elif isinstance(message, Message):
-            return message
-        # 3.3 If message is provided as a dict, try to validate it as a Message
-        elif isinstance(message, dict):
-            try:
-                return Message.model_validate(message)
-            except Exception as e:
-                log_warning(f"Failed to validate message: {e}")
-
     def _get_json_output_prompt(self) -> str:
         """Return the JSON output prompt for the Agent.
 
@@ -323,9 +306,7 @@ class Team(AgnoTeam):
         """
         import json
 
-        json_output_prompt = (
-            "Provide your output as a JSON containing the following fields:"
-        )
+        json_output_prompt = "请将输出内容以JSON格式提供，并包含以下字段："
         if self.response_model is not None:
             if isinstance(self.response_model, str):
                 json_output_prompt += "\n<json_fields>"
@@ -333,7 +314,7 @@ class Team(AgnoTeam):
                 json_output_prompt += "\n</json_fields>"
             elif isinstance(self.response_model, list):
                 json_output_prompt += "\n<json_fields>"
-                json_output_prompt += f"\n{json.dumps(self.response_model)}"
+                json_output_prompt += f"\n{json.dumps(obj=self.response_model, ensure_ascii=False, indent=2)}"
                 json_output_prompt += "\n</json_fields>"
             elif issubclass(self.response_model, BaseModel):
                 json_schema = self.response_model.model_json_schema()
@@ -376,22 +357,18 @@ class Team(AgnoTeam):
 
                     if len(response_model_properties) > 0:
                         json_output_prompt += "\n<json_fields>"
-                        json_output_prompt += f"\n{json.dumps([key for key in response_model_properties.keys() if key != '$defs'])}"
+                        json_output_prompt += f"\n{json.dumps(obj=[key for key in response_model_properties.keys() if key != '$defs'], ensure_ascii=False, indent=2)}"
                         json_output_prompt += "\n</json_fields>"
-                        json_output_prompt += (
-                            "\n\nHere are the properties for each field:"
-                        )
+                        json_output_prompt += "\n\n以下是每个字段的属性说明："
                         json_output_prompt += "\n<json_field_properties>"
-                        json_output_prompt += (
-                            f"\n{json.dumps(response_model_properties, indent=2)}"
-                        )
+                        json_output_prompt += f"\n{json.dumps(obj=response_model_properties, ensure_ascii=False, indent=2)}"
                         json_output_prompt += "\n</json_field_properties>"
             else:
                 log_warning(f"Could not build json schema for {self.response_model}")
         else:
-            json_output_prompt += "Provide the output as JSON."
+            json_output_prompt += "请以JSON格式提供输出。"
 
-        json_output_prompt += "\nStart your response with `{` and end it with `}`."
-        json_output_prompt += "\nYour output will be passed to json.loads() to convert it to a Python object."
-        json_output_prompt += "\nMake sure it only contains valid JSON."
+        json_output_prompt += "\n请以 `{` 开始响应，并以 `}` 结束。"
+        json_output_prompt += "\n你的输出将被传递给json.loads()来转换为Python对象。"
+        json_output_prompt += "\n请确保只包含有效的JSON内容。"
         return json_output_prompt

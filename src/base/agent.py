@@ -5,6 +5,8 @@ from typing import List, Optional
 from agno.memory.agent import AgentMemory
 from agno.memory.v2.memory import Memory, SessionSummary
 from agno.models.message import Message
+from agno.tools.function import Function
+from agno.tools.toolkit import Toolkit
 from agno.utils.log import log_warning
 from .prompts import get_json_output_prompt
 
@@ -118,14 +120,14 @@ class Agent(AgnoAgent):
         if self.has_team and self.add_transfer_instructions:
             system_message_content += (
                 "<agent_team>\n"
-                "You are the leader of a team of AI Agents:\n"
-                "- You can either respond directly or transfer tasks to other Agents in your team depending on the tools available to them.\n"
-                "- If you transfer a task to another Agent, make sure to include:\n"
-                "  - task_description (str): A clear description of the task.\n"
-                "  - expected_output (str): The expected output.\n"
-                "  - additional_information (str): Additional information that will help the Agent complete the task.\n"
-                "- You must always validate the output of the other Agents before responding to the user.\n"
-                "- You can re-assign the task if you are not satisfied with the result.\n"
+                "您是一个AI智能体团队的负责人：\n"
+                "- 您可以直接响应请求，或根据工具可用性将任务转交给团队中的其他智能体\n"
+                "- 转交任务时必须包含以下要素：\n"
+                "  - task_description (str): 清晰的任务描述\n"
+                "  - expected_output (str): 期望的输出结果\n"
+                "  - additional_information (str): 辅助任务完成的补充信息\n"
+                "- 在响应用户前必须始终验证其他智能体的输出\n"
+                "- 若对结果不满意，可以重新指派该任务\n"
                 "</agent_team>\n\n"
             )
         # 3.3.5 Then add instructions for the Agent
@@ -170,7 +172,7 @@ class Agent(AgnoAgent):
                 and self.memory.create_user_memories
             ):
                 if self.memory.memories and len(self.memory.memories) > 0:
-                    system_message_content += "You have access to memories from previous interactions with the user that you can use:\n\n"
+                    system_message_content += "您可以访问以下与用户之前的交互记忆：\n\n"
                     system_message_content += "<memories_from_previous_interactions>"
                     for _memory in self.memory.memories:
                         system_message_content += f"\n- {_memory.memory}"
@@ -178,24 +180,23 @@ class Agent(AgnoAgent):
                         "\n</memories_from_previous_interactions>\n\n"
                     )
                     system_message_content += (
-                        "Note: this information is from previous interactions and may be updated in this conversation. "
-                        "You should always prefer information from this conversation over the past memories.\n\n"
+                        "注意：这些记忆来自历史交互，可能在当前对话中被更新。"
+                        "您应始终优先使用本次对话中的最新信息而非历史记忆。\n\n"
                     )
                 else:
                     system_message_content += (
-                        "You have the capability to retain memories from previous interactions with the user, "
-                        "but have not had any interactions with the user yet.\n"
+                        "您具备记忆存储功能，但目前尚未与用户建立过交互记录。\n"
                     )
                 system_message_content += (
-                    "You can add new memories using the `update_memory` tool.\n"
-                    "If you use the `update_memory` tool, remember to pass on the response to the user.\n\n"
+                    "您可以通过`update_memory`工具更新记忆。\n"
+                    "使用`update_memory`工具后，请确保将响应结果返回给用户。\n\n"
                 )
             elif isinstance(self.memory, Memory) and (self.add_memory_references):
                 if not user_id:
                     user_id = "default"
                 user_memories = self.memory.get_user_memories(user_id=user_id)  # type: ignore
                 if user_memories and len(user_memories) > 0:
-                    system_message_content += "You have access to memories from previous interactions with the user that you can use:\n\n"
+                    system_message_content += "您可以访问以下与用户之前互动的记忆：\n\n"
                     system_message_content += "<memories_from_previous_interactions>"
                     for _memory in user_memories:  # type: ignore
                         system_message_content += f"\n- {_memory.memory}"
@@ -203,24 +204,23 @@ class Agent(AgnoAgent):
                         "\n</memories_from_previous_interactions>\n\n"
                     )
                     system_message_content += (
-                        "Note: this information is from previous interactions and may be updated in this conversation. "
-                        "You should always prefer information from this conversation over the past memories.\n"
+                        "注意：这些信息来自之前的互动，可能会在本次对话中更新。"
+                        "您应始终优先使用本次对话中的最新信息而非历史记忆。\n"
                     )
                 else:
                     system_message_content += (
-                        "You have the capability to retain memories from previous interactions with the user, "
-                        "but have not had any interactions with the user yet.\n"
+                        "您具备保留用户互动记忆的能力，但当前尚未建立任何互动记录。\n"
                     )
 
                 if self.enable_agentic_memory:
                     system_message_content += (
                         "\n<updating_user_memories>\n"
-                        "- You have access to the `update_user_memory` tool that you can use to add new memories, update existing memories, delete memories, or clear all memories.\n"
-                        "- If the user's message includes information that should be captured as a memory, use the `update_user_memory` tool to update your memory database.\n"
-                        "- Memories should include details that could personalize ongoing interactions with the user.\n"
-                        "- Use this tool to add new memories or update existing memories that you identify in the conversation.\n"
-                        "- Use this tool if the user asks to update their memory, delete a memory, or clear all memories.\n"
-                        "- If you use the `update_user_memory` tool, remember to pass on the response to the user.\n"
+                        "- 您可以使用`update_user_memory`工具来新增、修改、删除或清空记忆\n"
+                        "- 当用户提供需要长期记忆的信息时，请使用该工具更新记忆数据库\n"
+                        "- 记忆应包含有助于个性化用户交互的重要细节\n"
+                        "- 在识别到对话中有需要记录的信息时，请主动使用该工具\n"
+                        "- 当用户明确要求操作记忆时（如更新/删除/清空），请使用该工具\n"
+                        "- 使用记忆工具后，请务必将操作结果反馈给用户\n"
                         "</updating_user_memories>\n\n"
                     )
 
@@ -230,17 +230,13 @@ class Agent(AgnoAgent):
                 and self.memory.create_session_summary
             ):
                 if self.memory.summary is not None:
-                    system_message_content += (
-                        "Here is a brief summary of your previous interactions:\n\n"
-                    )
-                    system_message_content += "<summary_of_previous_interactions>\n"
+                    system_message_content += "以下是你之前交互记录的简要摘要：\n\n"
+                    system_message_content += "<历史交互摘要>\n"
                     system_message_content += str(self.memory.summary)
+                    system_message_content += "\n</历史交互摘要>\n\n"
                     system_message_content += (
-                        "\n</summary_of_previous_interactions>\n\n"
-                    )
-                    system_message_content += (
-                        "Note: this information is from previous interactions and may be outdated. "
-                        "You should ALWAYS prefer information from this conversation over the past summary.\n\n"
+                        "请注意：这些信息来自历史交互记录，可能已过时。"
+                        "你应当始终优先采用本次对话中的最新信息。\n\n"
                     )
             elif (
                 isinstance(self.memory, Memory) and self.add_session_summary_references
@@ -249,17 +245,15 @@ class Agent(AgnoAgent):
                     user_id = "default"
                 session_summary: SessionSummary = self.memory.summaries.get(user_id, {}).get(session_id, None)  # type: ignore
                 if session_summary is not None:
-                    system_message_content += (
-                        "Here is a brief summary of your previous interactions:\n\n"
-                    )
+                    system_message_content += "以下是你之前交互记录的简要摘要：\n\n"
                     system_message_content += "<summary_of_previous_interactions>\n"
                     system_message_content += session_summary.summary
                     system_message_content += (
                         "\n</summary_of_previous_interactions>\n\n"
                     )
                     system_message_content += (
-                        "Note: this information is from previous interactions and may be outdated. "
-                        "You should ALWAYS prefer information from this conversation over the past summary.\n\n"
+                        "注意：这些信息来自历史交互记录，可能已过时。"
+                        "你应当始终优先采纳本次对话中的最新信息。\n\n"
                     )
 
         # 3.3.12 Finally, add the system message from the Model
@@ -280,3 +274,25 @@ class Agent(AgnoAgent):
             if system_message_content
             else None
         )
+
+    def get_transfer_instructions(self) -> str:
+        if self.team and len(self.team) > 0:
+            transfer_instructions = "你可以将任务转交给以下团队成员：\n"
+            for agent_index, agent in enumerate(self.team):
+                transfer_instructions += f"\n成员：{agent_index + 1}：\n"
+                if agent.name:
+                    transfer_instructions += f"名称：{agent.name}\n"
+                if agent.role:
+                    transfer_instructions += f"角色：{agent.role}\n"
+                if agent.tools is not None:
+                    _tools = []
+                    for _tool in agent.tools:
+                        if isinstance(_tool, Toolkit):
+                            _tools.extend(list(_tool.functions.keys()))
+                        elif isinstance(_tool, Function):
+                            _tools.append(_tool.name)
+                        elif callable(_tool):
+                            _tools.append(_tool.__name__)
+                    transfer_instructions += f"可用工具：{', '.join(_tools)}\n"
+            return transfer_instructions
+        return ""

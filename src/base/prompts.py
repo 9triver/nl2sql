@@ -12,9 +12,7 @@ def get_json_output_prompt(response_model: Union[str, list, BaseModel]) -> str:
     This is added to the system prompt when the response_model is set and structured_outputs is False.
     """
 
-    json_output_prompt = (
-        "Provide your output as a JSON containing the following fields:"
-    )
+    json_output_prompt = "请按照以下字段结构以JSON格式提供输出："
     if response_model is not None:
         if isinstance(response_model, str):
             json_output_prompt += "\n<json_fields>"
@@ -22,7 +20,9 @@ def get_json_output_prompt(response_model: Union[str, list, BaseModel]) -> str:
             json_output_prompt += "\n</json_fields>"
         elif isinstance(response_model, list):
             json_output_prompt += "\n<json_fields>"
-            json_output_prompt += f"\n{json.dumps(response_model)}"
+            json_output_prompt += (
+                f"\n{json.dumps(obj=response_model, ensure_ascii=False, indent=2)}"
+            )
             json_output_prompt += "\n</json_fields>"
         elif (
             issubclass(type(response_model), BaseModel)
@@ -84,22 +84,18 @@ def get_json_output_prompt(response_model: Union[str, list, BaseModel]) -> str:
 
                 if len(response_model_properties) > 0:
                     json_output_prompt += "\n<json_fields>"
-                    json_output_prompt += f"\n{json.dumps([key for key in response_model_properties.keys() if key != '$defs'])}"
+                    json_output_prompt += f"\n{json.dumps(obj=[key for key in response_model_properties.keys() if key != '$defs'], ensure_ascii=False, indent=2)}"
                     json_output_prompt += "\n</json_fields>"
-                    json_output_prompt += "\n\nHere are the properties for each field:"
+                    json_output_prompt += "\n\n每个字段的属性说明如下："
                     json_output_prompt += "\n<json_field_properties>"
-                    json_output_prompt += (
-                        f"\n{json.dumps(response_model_properties, indent=2)}"
-                    )
+                    json_output_prompt += f"\n{json.dumps(obj=response_model_properties, ensure_ascii=False, indent=2)}"
                     json_output_prompt += "\n</json_field_properties>"
         else:
             log_warning(f"Could not build json schema for {response_model}")
     else:
-        json_output_prompt += "Provide the output as JSON."
+        json_output_prompt += "请以JSON格式提供输出"
 
-    json_output_prompt += "\nStart your response with `{` and end it with `}`."
-    json_output_prompt += (
-        "\nYour output will be passed to json.loads() to convert it to a Python object."
-    )
-    json_output_prompt += "\nMake sure it only contains valid JSON."
+    json_output_prompt += "\n请以 `{` 开始响应并以 `}` 结束"
+    json_output_prompt += "\n你的输出将通过json.loads()转换为Python对象"
+    json_output_prompt += "\n请确保输出内容为有效的JSON格式"
     return json_output_prompt

@@ -53,15 +53,15 @@ class BaiduSearchTools(Toolkit):
     def baidu_search(
         self, query: str, max_results: int = 5, language: str = "zh"
     ) -> str:
-        """Execute Baidu search and return results
+        """执行百度搜索并返回结果
 
         Args:
-            query (str): Search keyword
-            max_results (int, optional): Maximum number of results to return, default 5
-            language (str, optional): Search language, default Chinese
+            query (str): 搜索关键词
+            max_results (int, 可选): 最大返回结果数，默认为5
+            language (str, 可选): 搜索语言，默认为中文
 
         Returns:
-            str: A JSON formatted string containing the search results.
+            str: 包含搜索结果的JSON格式字符串
         """
         max_results = self.fixed_max_results or max_results
         language = self.fixed_language or language
@@ -86,4 +86,4 @@ class BaiduSearchTools(Toolkit):
                     "rank": str(idx),
                 }
             )
-        return json.dumps(res, indent=2, ensure_ascii=False)
+        return json.dumps(obj=res, ensure_ascii=False, indent=2)

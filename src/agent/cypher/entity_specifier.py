@@ -23,21 +23,20 @@ from agno.tools.toolkit import Toolkit
 from param import Parameter
 from tools.neq4j import Neo4jTools
 from base.agent import Agent
-from loguru import logger
 
 
 class EntitySpecifierAgent(Agent):
     name = "entity-specifier"
     role = dedent(
-        """I can map the entities in user's question to nodes or edges in database. I can't generate or execute cypher statements."""
+        """我能够将用户问题中的实体映射到数据库中的节点或边。我不能生成或执行cypher语句。"""
     )
     description = None
     instructions = dedent(
         """\
-        1. Extract entities from the user's question.
-        2. Map the entities to the entities in the Neo4j database.
-        3. Search the **detailed infomation** about the entities in the Neo4j database.
-        4. The **detailed infomation** must come from database, don't make fake infomation.\
+        1. 从用户问题中提取实体
+        2. 将实体映射到Neo4j数据库中的对应节点/边
+        3. 在Neo4j数据库中搜索这些实体的**详细信息**
+        4. **详细信息**必须来自数据库，禁止编造虚假信息\
     """
     )
 
@@ -75,6 +74,7 @@ class EntitySpecifierAgent(Agent):
         show_tool_calls: bool = True,
         tool_call_limit: Optional[int] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
+        tool_hooks: Optional[List[Callable]] = None,
         reasoning: bool = False,
         reasoning_model: Optional[Model] = None,
         reasoning_agent: Optional[Agent] = None,
@@ -162,6 +162,7 @@ class EntitySpecifierAgent(Agent):
             show_tool_calls=show_tool_calls,
             tool_call_limit=tool_call_limit,
             tool_choice=tool_choice,
+            tool_hooks=tool_hooks,
             reasoning=reasoning,
             reasoning_model=reasoning_model,
             reasoning_agent=reasoning_agent,

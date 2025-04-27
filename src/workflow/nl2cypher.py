@@ -11,11 +11,11 @@ from agno.storage.base import Storage
 from agno.workflow import Workflow, RunResponse
 from agno.run.team import TeamRunResponse
 from storage.yaml import YamlStorage
-from agno.utils.log import log_debug
-from loguru import logger
+from agno.utils.log import log_debug, log_info, log_error, log_warning
 
 
 from agent.question_validator import ValidateResult
+from base.memory.manager import MemoryManager
 from utils.utils import get_cypher_team, get_validator, get_validate_message
 
 
@@ -30,7 +30,8 @@ class NL2CypherWorkflow(Workflow):
         db=SqliteMemoryDb(
             table_name="workflow",
             db_file=os.path.join(database_dir, "workflow/memory.db"),
-        )
+        ),
+        memory_manager=MemoryManager(),
     )
 
     def __init__(
@@ -70,20 +71,23 @@ class NL2CypherWorkflow(Workflow):
         self, question: str, retries: int = 3
     ) -> Iterator[Union[RunResponse, TeamRunResponse]]:
         """This is where the main logic of the workflow is implemented."""
-        logger.info(f"user question: {question}")
-        validate_result = ValidateResult(success="unsuccuss", explanation="")
-        for _ in range(retries):
-            if validate_result.success == "success":
+        if retries < 0:
+            raise ValueError(f"retries must >= 0, but got {retries}")
+        log_info(f"user question: {question}")
+        validate_result = ValidateResult(success="未成功", explanation="")
+        for _ in range(retries + 1):
+            if validate_result.success == "成功":
                 break
 
-            logger.info(f"cypher_team start\n")
+            log_info(f"cypher_team start\n")
             team_message = question
             if len(validate_result.explanation) > 0:
-                team_message = f"You don't answer my question sucessfully, Explanation: {validate_result.explanation}, Question: {question}"
+                team_message = f"Y你未能成功回答我的问题，错误说明: {validate_result.explanation}，原问题: {question}"
 
             flag = True
+            try_times = 0
             exception_message = ""
-            while flag:
+            while flag and try_times < retries + 1:
                 try:
                     team_run_responses = self.cypher_team.run(
                         message=team_message + exception_message,
@@ -103,16 +107,16 @@ class NL2CypherWorkflow(Workflow):
                 except KeyboardInterrupt:
                     flag = False
                 except Exception as e:
-                    exception_message = (
-                        f"\n\nIn the past interaction with user, you throw error: {e}"
-                    )
-                    logger.error(exception_message)
+                    exception_message = f"\n\n在之前的交互中，你抛出了错误: {e}"
+                    log_error(exception_message)
+                finally:
+                    try_times += 1
 
-            logger.info(f"question_validate start\n")
             validate_message = get_validate_message(
                 question=question, response=team_response_content
             )
             validate_result = self.validator.run(message=validate_message).content
+            log_info(f"validate_result: {validate_result}\n")
             yield RunResponse(run_id=self.run_id, content=validate_result)
 
     def run_workflow(self, **kwargs: Any):
@@ -145,7 +149,7 @@ class NL2CypherWorkflow(Workflow):
             self._subclass_run = cast(Callable, self._subclass_run)
             result = self._subclass_run(**kwargs)
         except Exception as e:
-            logger.error(f"Workflow.run() failed: {e}")
+            log_error(f"Workflow.run() failed: {e}")
             raise e
 
         # The run_workflow() method handles both Iterator[RunResponse] and RunResponse
@@ -208,7 +212,7 @@ class NL2CypherWorkflow(Workflow):
             log_debug(f"Workflow Run End: {self.run_id}", center=True)
             return result
         else:
-            logger.warning(
+            log_warning(
                 f"Workflow.run() should only return RunResponse objects, got: {type(result)}"
             )
             return None
