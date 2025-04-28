@@ -27,16 +27,13 @@ from base.agent import Agent
 
 class EntitySpecifierAgent(Agent):
     name = "entity-specifier"
-    role = dedent(
-        """我能够将用户问题中的实体映射到数据库中的节点或边。我不能生成或执行cypher语句。"""
-    )
+    role = dedent("""我能够将用户问题中的实体映射到数据库中的节点或边。""")
     description = None
     instructions = dedent(
         """\
-        1. 从用户问题中提取实体
-        2. 将实体映射到Neo4j数据库中的对应节点/边
-        3. 在Neo4j数据库中搜索这些实体的**详细信息**
-        4. **详细信息**必须来自数据库，禁止编造虚假信息\
+        1. 检查自己能否完成用户任务，如果不能明确提出异议。如果可以，从用户问题中提取实体
+        2. 将实体映射到Neo4j数据库中的对应节点/边, 在Neo4j数据库中搜索这些实体的**详细信息**
+        3. **详细信息**必须来自数据库，禁止编造虚假信息\
     """
     )
 
@@ -46,7 +43,7 @@ class EntitySpecifierAgent(Agent):
         *,
         model: Optional[Model] = None,
         name: Optional[str] = name,
-        agent_id: Optional[str] = name,
+        agent_id: Optional[str] = None,
         introduction: Optional[str] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,

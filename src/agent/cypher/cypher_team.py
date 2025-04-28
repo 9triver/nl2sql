@@ -22,7 +22,6 @@ from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 
 from storage.yaml import YamlStorage
-from tools.baidu_search import BaiduSearchTools
 from tools.cypher_knowledge import CypherKnowledge
 from tools.neq4j import Neo4jTools
 from param import Parameter
@@ -36,20 +35,19 @@ class CypherTeam(Team):
     description = dedent("""Cypher 语句专家团队负责人""")
     instructions = dedent(
         """\
-        - 将复杂任务拆解为多个子任务。你只能执行成员生成的cypher语句
+        - 将复杂任务拆解为多个子任务。
         - 严格遵循并打印 **思考-行动-观察** 的思维链流程：
             1. **思考**：基于用户问题和之前的观察结果进行推理
             2. **行动**：选择以下一个操作执行：
-                行动1.使用工具
-                行动2.生成cypher语句查询所需信息（注意：数据库中的信息为中文）
-                行动3.优化调整之前的cypher语句
-                行动4.将子任务分配给团队成员
+                行动1.使用外部工具，注意检查自己所用工具是否存在
+                行动2.自己生成cypher语句查询所需信息
+                行动3.自己优化调整之前的cypher语句
+                行动4.将子任务分配给成员, 注意检查成员是否能解决该任务
             3. **观察**：分析上一步行动的执行结果
         - 持续循环 **思考-行动-观察** 流程，直到：确信可以准确回答用户问题
-        - 最终用中文回答，但不要翻译数据库中的原始信息（保持数据库信息原文）\
+        - 回答时不要翻译数据库中的原始信息（保持数据库信息原文）\
     """
     )
-    success_criteria = dedent("""基于neo4j数据库中的真实数据，详细准确地回答用户问题""")
     database_dir = "./tmp"
     storage = YamlStorage(dir_path=os.path.join(database_dir, "team"), mode="team")
     memory = Memory(
@@ -67,7 +65,7 @@ class CypherTeam(Team):
         mode: Literal["route", "coordinate", "collaborate"] = "coordinate",
         model: Optional[Model] = None,
         name: Optional[str] = name,
-        team_id: Optional[str] = name,
+        team_id: Optional[str] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         session_name: Optional[str] = None,
@@ -88,7 +86,7 @@ class CypherTeam(Team):
         references_format: Literal["json", "yaml"] = "json",
         enable_agentic_context: bool = False,
         share_member_interactions: bool = False,
-        get_member_information_tool: bool = True,
+        get_member_information_tool: bool = False,
         search_knowledge: bool = False,
         read_team_history: bool = True,
         tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = None,
@@ -122,13 +120,11 @@ class CypherTeam(Team):
         if tools is None:
             tools = [
                 CypherKnowledge(),
-                BaiduSearchTools(),
                 Neo4jTools(
                     user=param.DATABASE_USER,
                     password=param.DATABASE_PASSWORD,
                     db_uri=param.DATABASE_URL,
                     database=param.DATABASE_NAME,
-                    syntax=True,
                     execution=True,
                     labels=True,
                     relationships=True,

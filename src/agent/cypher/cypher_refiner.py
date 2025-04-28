@@ -55,7 +55,7 @@ class CypherRefinerAgent(Agent):
         *,
         model: Optional[Model] = None,
         name: Optional[str] = name,
-        agent_id: Optional[str] = name,
+        agent_id: Optional[str] = None,
         introduction: Optional[str] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,

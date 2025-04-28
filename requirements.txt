@@ -15,7 +15,6 @@ neo4j-haystack
 sentence-transformers
 tabulate
 einops
-loguru
 gradio
 qdrant-client
 markdown-it-py
@@ -24,3 +23,5 @@ nltk
 pytest
 baidusearch
 pycountry
+sqlalchemy
+graphviz
