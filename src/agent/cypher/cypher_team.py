@@ -22,7 +22,6 @@ from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 
 from storage.yaml import YamlStorage
-from tools.cypher_knowledge import CypherKnowledge
 from tools.neq4j import Neo4jTools
 from param import Parameter
 from base.agent import Agent
@@ -36,13 +35,13 @@ class CypherTeam(Team):
     instructions = dedent(
         """\
         - 将复杂任务拆解为多个子任务。
+        - 用户提供的信息不准确，因此写cypher语句前先收集信息：例如映射实体、查看标签/关系等
         - 严格遵循并打印 **思考-行动-观察** 的思维链流程：
             1. **思考**：基于用户问题和之前的观察结果进行推理
             2. **行动**：选择以下一个操作执行：
-                行动1.使用外部工具，注意检查自己所用工具是否存在
-                行动2.自己生成cypher语句查询所需信息
-                行动3.自己优化调整之前的cypher语句
-                行动4.将子任务分配给成员, 注意检查成员是否能解决该任务
+                - 将子任务分配给成员
+                - 使用外部工具
+                - 生成/优化cypher语句
             3. **观察**：分析上一步行动的执行结果
         - 持续循环 **思考-行动-观察** 流程，直到：确信可以准确回答用户问题
         - 回答时不要翻译数据库中的原始信息（保持数据库信息原文）\
@@ -97,10 +96,10 @@ class CypherTeam(Team):
         response_model: Optional[Type[BaseModel]] = None,
         use_json_mode: bool = False,
         parse_response: bool = False,
-        memory: Optional[Union[TeamMemory, Memory]] = memory,
-        enable_agentic_memory: bool = True,
-        enable_user_memories: bool = True,
-        add_memory_references: Optional[bool] = True,
+        memory: Optional[Union[TeamMemory, Memory]] = None,
+        enable_agentic_memory: bool = False,
+        enable_user_memories: bool = False,
+        add_memory_references: Optional[bool] = False,
         enable_session_summaries: bool = False,
         add_session_summary_references: Optional[bool] = False,
         enable_team_history: bool = True,
@@ -119,7 +118,6 @@ class CypherTeam(Team):
     ):
         if tools is None:
             tools = [
-                CypherKnowledge(),
                 Neo4jTools(
                     user=param.DATABASE_USER,
                     password=param.DATABASE_PASSWORD,

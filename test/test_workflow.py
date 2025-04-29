@@ -21,7 +21,7 @@ class TestWorkflow:
 
     def test_question_2(self):
         response = self.workflow.run(
-            question="名为‘智能一体化运维支撑平台‘和’智能一体化运维支撑平台oracle主库生产环境数据源‘两个节点之间有多少条节点数少于5的路径？",
+            question="名为‘智能一体化运维支撑平台‘和’智能一体化运维支撑平台oracle主库生产环境数据源‘两个节点之间有多少条节点数不超过5的路径？",
             retries=0,
         )
         pprint_run_response(response, markdown=True)

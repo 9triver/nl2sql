@@ -12,7 +12,16 @@ from param import Parameter
 
 
 def get_model(api_key: str, base_url: str, model_name: str):
-    return OpenAILike(id=model_name, base_url=base_url, api_key=api_key)
+    return OpenAILike(
+        id=model_name,
+        base_url=base_url,
+        api_key=api_key,
+        request_params={
+            "extra_body": {
+                "enable_thinking": False,
+            }
+        },
+    )
 
 
 param = Parameter(config_file_path="./config.yaml")
