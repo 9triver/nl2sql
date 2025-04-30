@@ -8,7 +8,8 @@ from neo4j.time import DateTime
 from neo4j.exceptions import ClientError, CypherSyntaxError
 from neo4j.work.summary import ResultSummary
 from neo4j_haystack.client import Neo4jClient, Neo4jClientConfig
-from haystack.components.embedders import SentenceTransformersTextEmbedder
+from haystack.utils import Secret
+from haystack.components.embedders import OpenAITextEmbedder
 from neo4j_haystack.client.neo4j_client import DEFAULT_NEO4J_DATABASE
 from tabulate import tabulate, TableFormat, Line
 from graphviz import Digraph
@@ -42,9 +43,9 @@ class Neo4jTools(Toolkit):
         user: str = "",
         password: str = "",
         database: str = DEFAULT_NEO4J_DATABASE,
-        embedding_dim: int = 768,
-        embedding_field: str = "embedding",
-        embedding_model: str = "moka-ai/m3e-base",
+        embed_model_name: str = "m3e-base",
+        embed_base_url: str = "http://localhost:9997/v1",
+        embed_api_key: str = "not_empty",
         db_uri: Optional[str] = None,
         dialect: Optional[str] = None,
         host: Optional[str] = None,
@@ -70,8 +71,6 @@ class Neo4jTools(Toolkit):
         self.user = user
         self.password = password
         self.database = database
-        self.embedding_dim = embedding_dim
-        self.embedding_field = embedding_field
         db_uri = db_uri or f"{dialect}://{host}:{port}"
         self.db_uri = db_uri
         self.dialect = dialect
@@ -81,10 +80,11 @@ class Neo4jTools(Toolkit):
         self._driver = GraphDatabase.driver(uri=db_uri, auth=basic_auth(user, password))
         self._driver.verify_connectivity()
 
-        self.text_embedder = SentenceTransformersTextEmbedder(
-            model=embedding_model, trust_remote_code=True
+        self.text_embedder = OpenAITextEmbedder(
+            model=embed_model_name,
+            api_base_url=embed_base_url,
+            api_key=Secret.from_token(embed_api_key),
         )
-        self.text_embedder.warm_up()
 
         if labels:
             self.register(self.show_labels)

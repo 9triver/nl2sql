@@ -23,6 +23,7 @@ from agno.tools.toolkit import Toolkit
 
 from storage.yaml import YamlStorage
 from tools.neq4j import Neo4jTools
+from tools.cypher_knowledge import CypherKnowledge
 from param import Parameter
 from base.agent import Agent
 from base.team import Team
@@ -118,11 +119,19 @@ class CypherTeam(Team):
     ):
         if tools is None:
             tools = [
+                CypherKnowledge(
+                    embed_model_name=param.embed_model_name,
+                    embed_base_url=param.embed_base_url,
+                    embed_api_key=param.embed_api_key,
+                ),
                 Neo4jTools(
                     user=param.DATABASE_USER,
                     password=param.DATABASE_PASSWORD,
                     db_uri=param.DATABASE_URL,
                     database=param.DATABASE_NAME,
+                    embed_model_name=param.embed_model_name,
+                    embed_base_url=param.embed_base_url,
+                    embed_api_key=param.embed_api_key,
                     execution=True,
                     labels=True,
                     relationships=True,

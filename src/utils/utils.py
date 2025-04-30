@@ -11,9 +11,9 @@ from agent.question_validator import QuestionValidatorAgent
 from param import Parameter
 
 
-def get_model(api_key: str, base_url: str, model_name: str):
+def get_model(api_key: str, base_url: str, response_model_name: str):
     return OpenAILike(
-        id=model_name,
+        id=response_model_name,
         base_url=base_url,
         api_key=api_key,
         request_params={
@@ -26,9 +26,9 @@ def get_model(api_key: str, base_url: str, model_name: str):
 
 param = Parameter(config_file_path="./config.yaml")
 model = get_model(
-    api_key=param.model_api_key,
-    base_url=param.model_base_url,
-    model_name=param.model_name,
+    api_key=param.response_api_key,
+    base_url=param.response_base_url,
+    response_model_name=param.response_model_name,
 )
 
 

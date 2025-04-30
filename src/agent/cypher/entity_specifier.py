@@ -125,6 +125,9 @@ class EntitySpecifierAgent(Agent):
                     password=param.DATABASE_PASSWORD,
                     db_uri=param.DATABASE_URL,
                     database=param.DATABASE_NAME,
+                    embed_model_name=param.embed_model_name,
+                    embed_base_url=param.embed_base_url,
+                    embed_api_key=param.embed_api_key,
                     similar_nodes=True,
                 ),
             ]

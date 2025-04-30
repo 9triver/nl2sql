@@ -22,17 +22,28 @@ class Parameter:
 
     def parse_config(self, config):
         # model config
-        model_config = config["model"]
-        self.parse_model_config(model_config)
+        models_config = config["models"]
+        self.parse_models_config(models_config)
         # database config
         database_config = config["database"]
         self.parse_database_config(database_config)
         return
 
-    def parse_model_config(self, model_config):
-        self.model_api_key = getenv(model_config["api_key_name"])
-        self.model_base_url = model_config["base_url"]
-        self.model_name = model_config["model_name"]
+    def parse_models_config(self, model_config):
+        # response_model
+        response_model_config = model_config["response_model"]
+        self.response_model_name = response_model_config["model_name"]
+        self.response_base_url = response_model_config["base_url"]
+        api_key_name = response_model_config["api_key_name"]
+        self.response_api_key = (
+            getenv(api_key_name or "") or f"load_{api_key_name}_fail"
+        )
+        # embed model
+        embed_model_config = model_config["embed_model"]
+        self.embed_model_name = embed_model_config["model_name"]
+        self.embed_base_url = embed_model_config["base_url"]
+        api_key_name = embed_model_config["api_key_name"]
+        self.embed_api_key = getenv(api_key_name or "") or f"load_{api_key_name}_fail"
         return
 
     def parse_database_config(self, database_config):

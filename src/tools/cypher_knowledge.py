@@ -2,10 +2,10 @@ import os, re
 from typing import List, Optional, Callable
 
 from agno.tools import Toolkit
+from haystack.utils import Secret
 from haystack.components.converters import TextFileToDocument
 from haystack import Document as HaystackDocument
-from haystack.components.embedders import SentenceTransformersTextEmbedder
-from haystack.components.embedders import SentenceTransformersDocumentEmbedder
+from haystack.components.embedders import OpenAIDocumentEmbedder, OpenAITextEmbedder
 from haystack_integrations.document_stores.qdrant import QdrantDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
 
@@ -25,7 +25,9 @@ class CypherKnowledge(Toolkit):
         cache_ttl: int = 3600,
         cache_dir: Optional[str] = None,
         auto_register: bool = False,
-        embedding_model: str = "nomic-ai/nomic-embed-text-v2-moe",
+        embed_model_name: str = "m3e-base",
+        embed_base_url: str = "http://localhost:9997/v1",
+        embed_api_key: str = "not_empty",
     ):
         super().__init__(
             name=name,
@@ -39,12 +41,15 @@ class CypherKnowledge(Toolkit):
             cache_dir=cache_dir,
             auto_register=auto_register,
         )
-        self.embedding_model = embedding_model
+        self.embed_model_name = embed_model_name
+        self.embed_base_url = embed_base_url
+        self.embed_api_key = embed_api_key
         self.document_store = self.load_knowledge()
-        self.text_embedder = SentenceTransformersTextEmbedder(
-            model=embedding_model, trust_remote_code=True
+        self.text_embedder = OpenAITextEmbedder(
+            model=embed_model_name,
+            api_base_url=embed_base_url,
+            api_key=Secret.from_token(embed_api_key),
         )
-        self.text_embedder.warm_up()
         self.register(self.seach_cypher_cheatsheet)
         return
 
@@ -78,10 +83,11 @@ class CypherKnowledge(Toolkit):
             chunks.extend(processed_blocks)
         haystack_documents = [HaystackDocument(content=chunk) for chunk in chunks]
 
-        embedder = SentenceTransformersDocumentEmbedder(
-            model=self.embedding_model, trust_remote_code=True
+        embedder = OpenAIDocumentEmbedder(
+            api_key=Secret.from_token(self.embed_api_key),
+            api_base_url=self.embed_base_url,
+            model=self.embed_model_name,
         )
-        embedder.warm_up()
         haystack_documents = embedder.run(documents=haystack_documents)["documents"]
 
         document_store = QdrantDocumentStore(
