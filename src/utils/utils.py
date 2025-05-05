@@ -6,6 +6,7 @@ from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 
 from agent.cypher.cypher_team import CypherTeam
+from agent.cypher.cypher_executor import CypherExecutorAgent
 from agent.cypher.entity_specifier import EntitySpecifierAgent
 from agent.question_validator import QuestionValidatorAgent
 from param import Parameter
@@ -34,8 +35,11 @@ model = get_model(
 
 def get_cypher_team():
     entity_specifier = EntitySpecifierAgent(param=param, model=model, retries=3)
+    cypher_executor = CypherExecutorAgent(param=param, model=model, retries=3)
     # question_validator = QuestionValidatorAgent(model=model, retries=3)
-    cypher_team = CypherTeam(param=param, model=model, members=[entity_specifier])
+    cypher_team = CypherTeam(
+        param=param, model=model, members=[entity_specifier, cypher_executor]
+    )
     return cypher_team
 
 

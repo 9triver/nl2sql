@@ -41,7 +41,6 @@ class CypherTeam(Team):
             1. **思考**：基于用户问题和之前的观察结果进行推理
             2. **行动**：选择以下一个操作执行：
                 - 将子任务分配给成员
-                - 使用外部工具
                 - 生成/优化cypher语句
             3. **观察**：分析上一步行动的执行结果
         - 持续循环 **思考-行动-观察** 流程，直到：确信可以准确回答用户问题
@@ -85,7 +84,7 @@ class CypherTeam(Team):
         retriever: Optional[Callable[..., Optional[List[Dict]]]] = None,
         references_format: Literal["json", "yaml"] = "json",
         enable_agentic_context: bool = False,
-        share_member_interactions: bool = False,
+        share_member_interactions: bool = True,
         get_member_information_tool: bool = False,
         search_knowledge: bool = False,
         read_team_history: bool = True,
@@ -117,26 +116,26 @@ class CypherTeam(Team):
         monitoring: bool = False,
         telemetry: bool = False,
     ):
-        if tools is None:
-            tools = [
-                CypherKnowledge(
-                    embed_model_name=param.embed_model_name,
-                    embed_base_url=param.embed_base_url,
-                    embed_api_key=param.embed_api_key,
-                ),
-                Neo4jTools(
-                    user=param.DATABASE_USER,
-                    password=param.DATABASE_PASSWORD,
-                    db_uri=param.DATABASE_URL,
-                    database=param.DATABASE_NAME,
-                    embed_model_name=param.embed_model_name,
-                    embed_base_url=param.embed_base_url,
-                    embed_api_key=param.embed_api_key,
-                    execution=True,
-                    labels=True,
-                    relationships=True,
-                ),
-            ]
+        # if tools is None:
+        #     tools = [
+        #         CypherKnowledge(
+        #             embed_model_name=param.embed_model_name,
+        #             embed_base_url=param.embed_base_url,
+        #             embed_api_key=param.embed_api_key,
+        #         ),
+        #         Neo4jTools(
+        #             user=param.DATABASE_USER,
+        #             password=param.DATABASE_PASSWORD,
+        #             db_uri=param.DATABASE_URL,
+        #             database=param.DATABASE_NAME,
+        #             embed_model_name=param.embed_model_name,
+        #             embed_base_url=param.embed_base_url,
+        #             embed_api_key=param.embed_api_key,
+        #             execution=True,
+        #             labels=True,
+        #             relationships=True,
+        #         ),
+        #     ]
         super().__init__(
             members=members,
             mode=mode,
