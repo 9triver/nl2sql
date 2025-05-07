@@ -1,16 +1,8 @@
-from agno.team import Team as AgnoTeam
-
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Union,
-    cast,
-)
+from typing import List, Optional, Sequence, cast
 
 from pydantic import BaseModel
 
+from agno.team import Team as AgnoTeam
 from agno.media import Audio, File, Image, Video
 from agno.memory.v2.memory import Memory, SessionSummary
 from agno.models.base import Model

@@ -16,7 +16,6 @@ from agno.memory.v2.memory import Memory
 from agno.memory.v2.db.sqlite import SqliteMemoryDb
 from pydantic import BaseModel
 from agno.models.base import Model
-from agno.memory.team import TeamMemory
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
@@ -28,6 +27,7 @@ from param import Parameter
 from base.agent import Agent
 from base.team import Team
 from base.memory.manager import MemoryManager
+from base.memory.team import TeamMemory
 
 
 class CypherTeam(Team):
@@ -49,12 +49,13 @@ class CypherTeam(Team):
     )
     database_dir = "./tmp"
     storage = YamlStorage(dir_path=os.path.join(database_dir, "team"), mode="team")
-    memory = Memory(
+    memory = TeamMemory(
+        member_interaction_num=3,
         db=SqliteMemoryDb(
             table_name="team",
             db_file=os.path.join(database_dir, "team/memory.db"),
         ),
-        memory_manager=MemoryManager(),
+        manager=MemoryManager(),
     )
 
     def __init__(
@@ -96,7 +97,7 @@ class CypherTeam(Team):
         response_model: Optional[Type[BaseModel]] = None,
         use_json_mode: bool = False,
         parse_response: bool = False,
-        memory: Optional[Union[TeamMemory, Memory]] = None,
+        memory: Optional[Union[TeamMemory, Memory]] = memory,
         enable_agentic_memory: bool = False,
         enable_user_memories: bool = False,
         add_memory_references: Optional[bool] = False,
