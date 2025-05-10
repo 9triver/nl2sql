@@ -15,31 +15,26 @@ class TestNeo4jTools:
         database=param.DATABASE_NAME,
     )
 
-    def test_show_indexes(self):
-        result = self.neo4j_tools.show_indexes()
+    def test_show_schema(self):
+        result = self.neo4j_tools.show_schema()
         assert isinstance(result, str)
         print(result)
 
-    def test_show_metadata(self):
-        result = self.neo4j_tools.show_metadata()
-        assert isinstance(result, str)
-        print(result)
-
-    def test_execute_cypher_statement_1(self):
+    def test_execute_cypher_1(self):
         result = self.neo4j_tools.execute_cypher(
             cypher="MATCH p=()-[r:CONTAINS]->() RETURN p LIMIT 3"
         )
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_cypher_statement_2(self):
+    def test_execute_cypher_2(self):
         result = self.neo4j_tools.execute_cypher(
             cypher="MATCH (n:系统组件:主机) RETURN n LIMIT 3"
         )
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_cypher_statement_3(self):
+    def test_execute_cypher_3(self):
         result = self.neo4j_tools.execute_cypher(
             cypher=dedent(
                 """\
@@ -54,14 +49,14 @@ class TestNeo4jTools:
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_cypher_statement_4(self):
+    def test_execute_cypher_4(self):
         result = self.neo4j_tools.execute_cypher(
             cypher="MATCH (n:Person | {name: 'Alice'}) RETURN n"
         )
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_cypher_statement_5(self):
+    def test_execute_cypher_5(self):
         result = self.neo4j_tools.execute_cypher(
             cypher=dedent(
                 """\
@@ -73,7 +68,7 @@ class TestNeo4jTools:
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_cypher_statement_6(self):
+    def test_execute_cypher_6(self):
         result = self.neo4j_tools.execute_cypher(
             cypher=dedent(
                 """MATCH (sys:系统资源 {系统资源名称: '数智信通'})--(relatedNodes) RETURN sys, r, relatedNodes)"""
@@ -82,7 +77,7 @@ class TestNeo4jTools:
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_cypher_statement_path_0(self):
+    def test_execute_cypher_path_0(self):
         result = self.neo4j_tools.execute_cypher(
             cypher=dedent(
                 """\
@@ -95,7 +90,7 @@ class TestNeo4jTools:
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_cypher_statement_path_1(self):
+    def test_execute_cypher_path_1(self):
         result = self.neo4j_tools.execute_cypher(
             cypher=dedent(
                 """\

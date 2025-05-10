@@ -134,9 +134,9 @@ class CypherExecutorAgent(Agent):
                     embed_model_name=param.embed_model_name,
                     embed_base_url=param.embed_base_url,
                     embed_api_key=param.embed_api_key,
-                    execution=True,
                     labels=True,
                     relationships=True,
+                    execution=True,
                 ),
             ]
         super().__init__(

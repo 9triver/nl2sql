@@ -6,7 +6,7 @@ from neo4j import GraphDatabase, basic_auth
 from neo4j.graph import Node, Relationship, Path
 from neo4j.time import DateTime
 from neo4j.exceptions import ClientError, CypherSyntaxError
-from neo4j.work.summary import ResultSummary
+from neo4j import ResultSummary
 from neo4j_haystack.client import Neo4jClient, Neo4jClientConfig
 from haystack.utils import Secret
 from haystack.components.embedders import OpenAITextEmbedder
@@ -50,10 +50,10 @@ class Neo4jTools(Toolkit):
         dialect: Optional[str] = None,
         host: Optional[str] = None,
         port: Optional[int] = None,
+        schema: bool = False,
         labels: bool = False,
         relationships: bool = False,
         similar_nodes: bool = False,
-        syntax: bool = False,
         execution: bool = False,
     ):
         super().__init__(
@@ -86,45 +86,24 @@ class Neo4jTools(Toolkit):
             api_key=Secret.from_token(embed_api_key),
         )
 
+        if schema:
+            self.register(self.show_schema)
         if labels:
             self.register(self.show_labels)
         if relationships:
             self.register(self.show_relationships)
         if similar_nodes:
             self.register(self.get_similar_node)
-        if syntax:
-            self.register(self.check_cypher_syntax)
         if execution:
             self.register(self.execute_cypher)
 
-    def show_indexes(self) -> str:
-        """使用此函数显示Neo4j数据库中的索引。
-
-        返回:
-            str: 包含索引信息的JSON格式字符串，出于简洁性考虑移除了部分键值。
-        """
-        result, _, _ = self._execute_cypher_statement(cypher="SHOW INDEXES")
-        # filter
-        result = self._remove_keys(
-            obj=result,
-            keys_to_remove=[
-                "id",
-                "state",
-                "indexProvider",
-                "populationPercent",
-                "lastRead",
-                "readCount",
-            ],
-        )
-        return json.dumps(obj=result, ensure_ascii=False, indent=2)
+    def show_schema(self) -> str:
+        """显示Neo4j数据库的模式。"""
+        return self.execute_cypher(cypher="CALL db.schema.visualization()")
 
     def show_labels(self) -> str:
-        """使用此函数显示Neo4j数据库中所有标签的信息。
-
-        返回:
-            str: 以JSON格式返回节点标签及其数量信息。
-        """
-        labels_table, _, _ = self._execute_cypher_statement(
+        """显示Neo4j数据库中的所有标签。"""
+        labels_table, _, _ = self._execute_cypher(
             dedent(
                 """\
             MATCH (n)
@@ -137,12 +116,8 @@ class Neo4jTools(Toolkit):
         return f"Node labels:{labels_table}"
 
     def show_relationships(self) -> str:
-        """使用此函数显示Neo4j数据库中所有关系的信息。
-
-        返回:
-            str: 以表格形式展示的关系类型及其数量的字符串。
-        """
-        records, _, _ = self._execute_cypher_statement(
+        """显示Neo4j数据库中的所有关系。"""
+        records, _, _ = self._execute_cypher(
             cypher="CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
         )
         records = self._extract_keys(obj=records, keys_to_keep=["relationshipType"])
@@ -150,7 +125,7 @@ class Neo4jTools(Toolkit):
 
         rel_counts = []
         for rel_type in rel_types:
-            records, _, _ = self._execute_cypher_statement(
+            records, _, _ = self._execute_cypher(
                 cypher=dedent(
                     f"""\
                     MATCH ()-[r:`{rel_type}`]->()
@@ -168,7 +143,7 @@ class Neo4jTools(Toolkit):
             stralign="left",
         )
 
-        return f"Relationship types:{rel_table}"
+        return f"Relationship:{rel_table}"
 
     def get_similar_node(self, query: str) -> str:
         """使用该函数查找与给定查询相似的节点。
@@ -181,7 +156,7 @@ class Neo4jTools(Toolkit):
         """
         top_k = 1
         # get all index names
-        result, _, _ = self._execute_cypher_statement(cypher="SHOW INDEXES")
+        result, _, _ = self._execute_cypher(cypher="SHOW INDEXES")
         result = self._extract_keys(
             obj=result,
             keys_to_keep=["name"],
@@ -215,23 +190,6 @@ class Neo4jTools(Toolkit):
         formatted_records, _, _ = self._format_record_json(data=sorted_records)
         return json.dumps(obj=formatted_records, ensure_ascii=False, indent=2)
 
-    def check_cypher_syntax(self, cypher: str) -> str:
-        """使用该函数验证Cypher语句的语法是否正确。
-
-        Args:
-            cypher (str): 待验证的Cypher语句字符串
-
-        Returns:
-            str: 若存在语法错误则返回错误信息，否则返回 "No Cypher Syntax Error"
-        """
-        try:
-            _, _, summary = self._execute_cypher_statement(
-                cypher=cypher, parameters=None
-            )
-        except CypherSyntaxError as e:
-            return e.message
-        return f"No Cypher Syntax Error, Summary:{summary}"
-
     def execute_cypher(self, cypher: str) -> str:
         """执行Cypher语句并返回结果。
 
@@ -240,24 +198,32 @@ class Neo4jTools(Toolkit):
 
         返回:
             str:
-                - 如果结果包含图形关系，返回图数据源（如DOT格式）
+                - 如果结果包含图形关系，返回DOT格式的图数据
                 - 如果结果是普通记录，返回JSON格式字符串
                 - 如果存在语法错误，返回错误信息
         """
         try:
-            formatted_records, digraph, formatted_summary = (
-                self._execute_cypher_statement(cypher=cypher)
+            formatted_records, digraph, formatted_summary = self._execute_cypher(
+                cypher=cypher
             )
         except CypherSyntaxError as e:
             return e.message
-        result = (
+
+        result_str = (
             json.dumps(obj=formatted_records, ensure_ascii=False, indent=2)
             if len(digraph.body) < 1
-            else digraph.source.replace('\\"', "'")
+            else digraph.source
         )
-        return f"Summary:\n{formatted_summary}\n\nResult:\n{result}"
+        result_str = result_str.replace('\\"', "'").replace("\\'", "'")
 
-    def _execute_cypher_statement(
+        return_str = ""
+        if len(formatted_summary) > 0:
+            return_str += f"Summary:\n{formatted_summary}\n\n"
+        if len(result_str) > 0 and result_str != "[]":
+            return_str += f"Result:\n{result_str}"
+        return return_str
+
+    def _execute_cypher(
         self, cypher: str, parameters=None
     ) -> Tuple[List[Dict[str, Any]], Digraph]:
         """执行Cypher查询语句并返回格式化结果和图形表示。
@@ -348,6 +314,14 @@ class Neo4jTools(Toolkit):
                 formatted_value, digraph, entity_set = self._format_record_json(
                     data=value, digraph=digraph, entity_set=entity_set
                 )
+                # filter enpty value
+                if formatted_value is None:
+                    continue
+                try:
+                    if len(formatted_value) <= 0:
+                        continue
+                except TypeError:
+                    pass
                 formatted_data[key] = formatted_value
             return formatted_data, digraph, entity_set
         elif isinstance(data, (list, tuple)):
@@ -356,7 +330,9 @@ class Neo4jTools(Toolkit):
                 processed_item, digraph, entity_set = self._format_record_json(
                     data=item, digraph=digraph, entity_set=entity_set
                 )
-                if not isinstance(processed_item, float):
+                if not isinstance(
+                    processed_item, float
+                ):  # filter list[float](possible embedding)
                     filtered.append(processed_item)
             return filtered, digraph, entity_set
         elif isinstance(data, Path):
@@ -391,19 +367,21 @@ class Neo4jTools(Toolkit):
             formatted_end_node, digraph, entity_set = self._format_record_json(
                 data=data.end_node, digraph=digraph, entity_set=entity_set
             )
-            formatted_data = {
-                "start_node": formatted_start_node,
-                "element_id": data.element_id,
-                "type": data.type,
-                "properties": data._properties,
-                "end_node": formatted_end_node,
-            }
+            formatted_data = {}
+            if data.type is not None and len(data.type) > 0:
+                formatted_data["type"] = data.type
+            if data._properties is not None and len(data._properties.keys()) > 0:
+                formatted_data["properties"] = json.dumps(
+                    obj=data._properties, ensure_ascii=False
+                )
             if data not in entity_set:
                 entity_set.add(data)
                 digraph.edge(
                     tail_name=formatted_start_node["name"],
                     head_name=formatted_end_node["name"],
-                    attrs=json.dumps(obj=formatted_data, ensure_ascii=False, indent=2),
+                    label=None,
+                    _attributes=None,
+                    **formatted_data,
                 )
             return formatted_data, digraph, entity_set
         else:
