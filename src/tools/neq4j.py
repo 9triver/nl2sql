@@ -2,7 +2,7 @@ import json
 from typing import Optional, Tuple, Set, List, Dict, Any, Callable
 from textwrap import dedent
 from agno.tools import Toolkit
-from neo4j import GraphDatabase, basic_auth
+from neo4j import GraphDatabase, basic_auth, Record
 from neo4j.graph import Node, Relationship, Path
 from neo4j.time import DateTime
 from neo4j.exceptions import ClientError, CypherSyntaxError
@@ -11,21 +11,10 @@ from neo4j_haystack.client import Neo4jClient, Neo4jClientConfig
 from haystack.utils import Secret
 from haystack.components.embedders import OpenAITextEmbedder
 from neo4j_haystack.client.neo4j_client import DEFAULT_NEO4J_DATABASE
-from tabulate import tabulate, TableFormat, Line
 from graphviz import Digraph
 
 
 class Neo4jTools(Toolkit):
-    custom_format = TableFormat(
-        lineabove=Line("", "", "", ""),  # 无上边框
-        linebelowheader=Line("-", "-", "-", ""),  # 标题下方有分割线
-        linebetweenrows=None,  # 无行间分隔线
-        linebelow=None,  # 无底部分隔线
-        headerrow=("|", "|", "|"),  # 在表头的列之间使用 |
-        datarow=("|", "|", "|"),  # 在数据行的列之间使用 |
-        padding=1,  # 确保列内容与分割线之间有足够的间距
-        with_header_hide=None,
-    )
     name = "neo4j_tools"
 
     def __init__(
@@ -103,47 +92,15 @@ class Neo4jTools(Toolkit):
 
     def show_labels(self) -> str:
         """显示Neo4j数据库中的所有标签。"""
-        labels_table, _, _ = self._execute_cypher(
-            dedent(
-                """\
-            MATCH (n)
-            RETURN labels(n) AS label, count(*) AS count
-            ORDER BY count DESC\
-        """
-            )
-        )
-        labels_table = json.dumps(obj=labels_table, ensure_ascii=False, indent=2)
-        return f"Node labels:{labels_table}"
+        labels, _, _ = self._execute_cypher("""CALL db.labels() """)
+        labels = [label["label"] for label in labels]
+        return f"Node labels:{labels}"
 
     def show_relationships(self) -> str:
         """显示Neo4j数据库中的所有关系。"""
-        records, _, _ = self._execute_cypher(
-            cypher="CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType"
-        )
-        records = self._extract_keys(obj=records, keys_to_keep=["relationshipType"])
-        rel_types = [record["relationshipType"] for record in records]
-
-        rel_counts = []
-        for rel_type in rel_types:
-            records, _, _ = self._execute_cypher(
-                cypher=dedent(
-                    f"""\
-                    MATCH ()-[r:`{rel_type}`]->()
-                    RETURN COUNT(r) AS count
-                """
-                ),
-            )
-            records = self._extract_keys(obj=records, keys_to_keep=["count"])
-            rel_count = records[0]["count"]
-            rel_counts.append([rel_types, rel_count])
-        rel_table = tabulate(
-            rel_counts,
-            headers=["relationshipType", "count"],
-            tablefmt=self.custom_format,
-            stralign="left",
-        )
-
-        return f"Relationship:{rel_table}"
+        relationships, _, _ = self._execute_cypher(cypher="CALL db.relationshipTypes()")
+        relationships = [relationship["relationshipType"] for relationship in relationships]
+        return f"Relationship:{relationships}"
 
     def get_similar_node(self, query: str) -> str:
         """使用该函数查找与给定查询相似的节点。
@@ -225,7 +182,7 @@ class Neo4jTools(Toolkit):
 
     def _execute_cypher(
         self, cypher: str, parameters=None
-    ) -> Tuple[List[Dict[str, Any]], Digraph]:
+    ) -> Tuple[List[Dict[str, Any]], Digraph, str]:
         """执行Cypher查询语句并返回格式化结果和图形表示。
 
         参数:
@@ -255,7 +212,9 @@ class Neo4jTools(Toolkit):
             formatted_summary += f"{notification.title}\n{notification.description}\n\n"
         return formatted_summary
 
-    def _format_records(self, keys, records) -> Tuple[List[Dict[str, Any]], Digraph]:
+    def _format_records(
+        self, keys: list[str], records: list[Record]
+    ) -> Tuple[List[Dict[str, Any]], Digraph]:
         """将原始数据库记录格式化为结构化字典和图表示。
 
         Args:

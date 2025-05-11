@@ -20,6 +20,16 @@ class TestNeo4jTools:
         assert isinstance(result, str)
         print(result)
 
+    def test_show_labels(self):
+        result = self.neo4j_tools.show_labels()
+        assert isinstance(result, str)
+        print(result)
+
+    def test_show_relationships(self):
+        result = self.neo4j_tools.show_relationships()
+        assert isinstance(result, str)
+        print(result)
+
     def test_execute_cypher_1(self):
         result = self.neo4j_tools.execute_cypher(
             cypher="MATCH p=()-[r:CONTAINS]->() RETURN p LIMIT 3"
@@ -99,5 +109,10 @@ class TestNeo4jTools:
                 """
             )
         )
+        assert isinstance(result, str)
+        print(result)
+
+    def test_count(self):
+        result = self.neo4j_tools.execute_cypher(cypher=dedent(""":schema"""))
         assert isinstance(result, str)
         print(result)
