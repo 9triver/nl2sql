@@ -99,7 +99,9 @@ class Neo4jTools(Toolkit):
     def show_relationships(self) -> str:
         """显示Neo4j数据库中的所有关系。"""
         relationships, _, _ = self._execute_cypher(cypher="CALL db.relationshipTypes()")
-        relationships = [relationship["relationshipType"] for relationship in relationships]
+        relationships = [
+            relationship["relationshipType"] for relationship in relationships
+        ]
         return f"Relationship:{relationships}"
 
     def get_similar_node(self, query: str) -> str:

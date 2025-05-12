@@ -50,7 +50,9 @@ class Agent(AgnoAgent):
                     and (self.use_json_mode or self.structured_outputs is False)
                 )
             ):
-                sys_message_content += f"\n{get_json_output_prompt(self.response_model)}"  # type: ignore
+                sys_message_content += (
+                    f"\n{get_json_output_prompt(self.response_model)}"  # type: ignore
+                )
 
             # type: ignore
             return Message(role=self.system_message_role, content=sys_message_content)
@@ -243,7 +245,9 @@ class Agent(AgnoAgent):
             ):
                 if not user_id:
                     user_id = "default"
-                session_summary: SessionSummary = self.memory.summaries.get(user_id, {}).get(session_id, None)  # type: ignore
+                session_summary: SessionSummary = self.memory.summaries.get(
+                    user_id, {}
+                ).get(session_id, None)  # type: ignore
                 if session_summary is not None:
                     system_message_content += "以下是你之前交互记录的简要摘要：\n\n"
                     system_message_content += "<summary_of_previous_interactions>\n"
@@ -270,7 +274,9 @@ class Agent(AgnoAgent):
 
         # Return the system message
         return (
-            Message(role=self.system_message_role, content=system_message_content.strip())  # type: ignore
+            Message(
+                role=self.system_message_role, content=system_message_content.strip()
+            )  # type: ignore
             if system_message_content
             else None
         )

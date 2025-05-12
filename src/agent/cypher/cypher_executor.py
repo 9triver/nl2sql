@@ -21,7 +21,7 @@ from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 
 from param import Parameter
-from tools.cypher_knowledge import CypherKnowledge
+from tools.cypher import CypherTools
 from tools.neq4j import Neo4jTools
 from base.agent import Agent
 
@@ -121,7 +121,7 @@ class CypherExecutorAgent(Agent):
     ):
         if tools is None:
             tools = [
-                CypherKnowledge(
+                CypherTools(
                     embed_model_name=param.embed_model_name,
                     embed_base_url=param.embed_base_url,
                     embed_api_key=param.embed_api_key,

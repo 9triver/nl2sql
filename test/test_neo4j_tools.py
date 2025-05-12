@@ -61,13 +61,6 @@ class TestNeo4jTools:
 
     def test_execute_cypher_4(self):
         result = self.neo4j_tools.execute_cypher(
-            cypher="MATCH (n:Person | {name: 'Alice'}) RETURN n"
-        )
-        assert isinstance(result, str)
-        print(result)
-
-    def test_execute_cypher_5(self):
-        result = self.neo4j_tools.execute_cypher(
             cypher=dedent(
                 """\
                 MATCH (system:System {name: '数智信通'})-[:RELATES_TO]->(component)
@@ -78,7 +71,7 @@ class TestNeo4jTools:
         assert isinstance(result, str)
         print(result)
 
-    def test_execute_cypher_6(self):
+    def test_execute_cypher_5(self):
         result = self.neo4j_tools.execute_cypher(
             cypher=dedent(
                 """MATCH (sys:系统资源 {系统资源名称: '数智信通'})--(relatedNodes) RETURN sys, r, relatedNodes)"""

@@ -7,7 +7,6 @@ from agno.models.message import Message
 
 
 class MemoryManager(AgnoMemoryManager):
-
     def get_system_message(
         self,
         existing_memories: Optional[List[Dict[str, Any]]] = None,

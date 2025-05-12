@@ -78,9 +78,9 @@ def get_json_output_prompt(response_model: Union[str, list, BaseModel]) -> str:
                                         formatted_field_properties
                                     )
                             if len(formatted_def_properties) > 0:
-                                response_model_properties["$defs"][
-                                    def_name
-                                ] = formatted_def_properties
+                                response_model_properties["$defs"][def_name] = (
+                                    formatted_def_properties
+                                )
 
                 if len(response_model_properties) > 0:
                     json_output_prompt += "\n<json_fields>"

@@ -8,10 +8,21 @@ from haystack import Document as HaystackDocument
 from haystack.components.embedders import OpenAIDocumentEmbedder, OpenAITextEmbedder
 from haystack_integrations.document_stores.qdrant import QdrantDocumentStore
 from haystack.document_stores.types import DuplicatePolicy
+from antlr4 import (
+    InputStream,
+    CommonTokenStream,
+    ParseTreeListener,
+    ParseTreeWalker,
+    Token,
+)
+from antlr4.tree.Tree import TerminalNodeImpl
+from antlr4_cypher import CypherLexer, CypherParser
+
+from utils.constants import CYPHER_KEYWORDS
 
 
-class CypherKnowledge(Toolkit):
-    name = "cypher_knowledge"
+class CypherTools(Toolkit):
+    name = "Cypher_tools"
 
     def __init__(
         self,
@@ -50,6 +61,7 @@ class CypherKnowledge(Toolkit):
             api_base_url=embed_base_url,
             api_key=Secret.from_token(embed_api_key),
         )
+
         self.register(self.seach_cypher_cheatsheet)
         return
 
@@ -115,3 +127,42 @@ class CypherKnowledge(Toolkit):
         )
         texts = [document.content for document in documents]
         return "\n\n".join(texts)
+
+    @staticmethod
+    def normalize_cypher(cypher: str):
+        """Normalize a Cypher query."""
+        cypher = re.sub(r"\s+", " ", cypher)
+
+        # ANTLR4 parsing for structured normalization
+        input_stream = InputStream(cypher)
+        lexer = CypherLexer(input_stream)
+        token_stream = CommonTokenStream(lexer)
+        parser = CypherParser(token_stream)
+        tree = parser.script()
+
+        class CypherNormalizer(ParseTreeListener):
+            def __init__(self):
+                self.result = []
+
+            def visitTerminal(self, node: TerminalNodeImpl):
+                token: Token = node.getSymbol()
+                if token.type == -1:
+                    return
+                token_text = (
+                    token.text.upper()
+                    if token.text.upper() in CYPHER_KEYWORDS
+                    else token.text
+                )
+                self.result.append(token_text)
+
+        walker = ParseTreeWalker()
+        normalizer = CypherNormalizer()
+        walker.walk(normalizer, tree)
+        normalized_cypher = "".join(normalizer.result)
+
+        # Post-processing
+        normalized_cypher = (
+            normalized_cypher.replace(" . ", ".").replace("( ", "(").replace(" )", ")")
+        )
+
+        return normalized_cypher.strip() + ";"

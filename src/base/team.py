@@ -226,7 +226,9 @@ class Team(AgnoTeam):
             if isinstance(self.memory, Memory) and self.add_session_summary_references:
                 if not user_id:
                     user_id = "default"
-                session_summary: SessionSummary = self.memory.summaries.get(user_id, {}).get(session_id, None)  # type: ignore
+                session_summary: SessionSummary = self.memory.summaries.get(
+                    user_id, {}
+                ).get(session_id, None)  # type: ignore
                 if session_summary is not None:
                     system_message_content += "以下是你之前交互的简要摘要：\n\n"
                     system_message_content += "<summary_of_previous_interactions>\n"
@@ -343,9 +345,9 @@ class Team(AgnoTeam):
                                         formatted_field_properties
                                     )
                             if len(formatted_def_properties) > 0:
-                                response_model_properties["$defs"][
-                                    def_name
-                                ] = formatted_def_properties
+                                response_model_properties["$defs"][def_name] = (
+                                    formatted_def_properties
+                                )
 
                     if len(response_model_properties) > 0:
                         json_output_prompt += "\n<json_fields>"

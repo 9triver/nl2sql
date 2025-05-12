@@ -22,7 +22,7 @@ from agno.tools.toolkit import Toolkit
 
 from storage.yaml import YamlStorage
 from tools.neq4j import Neo4jTools
-from tools.cypher_knowledge import CypherKnowledge
+from tools.cypher import CypherTools
 from param import Parameter
 from base.agent import Agent
 from base.team import Team
