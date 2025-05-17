@@ -43,7 +43,7 @@ class ChatUI:
 
         try:
             run_response: Iterator[Union[RunResponse, TeamRunResponse]] = (
-                self.workflow.run(question=message, retries=0)
+                self.workflow.run(question=message)
             )
         except KeyboardInterrupt as e:
             raise e

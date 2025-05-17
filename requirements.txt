@@ -23,7 +23,4 @@ nltk
 pytest
 baidusearch
 pycountry
-sqlalchemy
 graphviz
-antlr4-python3-runtime
-antlr4-cypher

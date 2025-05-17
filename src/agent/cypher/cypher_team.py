@@ -42,6 +42,7 @@ class CypherTeam(Team):
             2. **行动**：选择以下一个操作执行：
                 - 将子任务分配给成员
                 - 生成/优化cypher语句
+                - 选择一个工具调用
             3. **观察**：分析上一步行动的执行结果
         - 持续循环 **思考-行动-观察** 流程，直到：确信可以准确回答用户问题
         - 回答时不要翻译数据库中的原始信息（保持数据库信息原文）\
@@ -119,6 +120,11 @@ class CypherTeam(Team):
     ):
         if tools is None:
             tools = [
+                CypherTools(
+                    embed_model_name=param.embed_model_name,
+                    embed_base_url=param.embed_base_url,
+                    embed_api_key=param.embed_api_key,
+                ),
                 Neo4jTools(
                     user=param.DATABASE_USER,
                     password=param.DATABASE_PASSWORD,
@@ -127,7 +133,9 @@ class CypherTeam(Team):
                     embed_model_name=param.embed_model_name,
                     embed_base_url=param.embed_base_url,
                     embed_api_key=param.embed_api_key,
-                    schema=True,
+                    labels=True,
+                    relationships=True,
+                    execution=True,
                 ),
             ]
         super().__init__(

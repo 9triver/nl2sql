@@ -15,9 +15,7 @@ workflow = NL2CypherWorkflow()
 @app.get("/ask")
 async def ask(question: str):
     def workflow_streamer():
-        run_response: Iterator[Union[RunResponse, TeamRunResponse]] = workflow.run(
-            question=question, retries=0
-        )
+        run_response = workflow.run(question=question)
         for resp in run_response:
             run_response_content = get_run_response_content(run_response=resp)
             if run_response_content != "Run started":

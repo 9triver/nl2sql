@@ -1,4 +1,5 @@
 import json
+import numpy as np
 from typing import Union
 from pydantic import BaseModel
 from agno.models.openai import OpenAILike
@@ -6,50 +7,64 @@ from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 
 from agent.cypher.cypher_team import CypherTeam
-from agent.cypher.cypher_executor import CypherExecutorAgent
 from agent.cypher.entity_specifier import EntitySpecifierAgent
-from agent.question_validator import QuestionValidatorAgent
+from agent.reflector import ReflectorAgent
 from param import Parameter
 
 
-def get_model(api_key: str, base_url: str, response_model_name: str):
-    return OpenAILike(
-        id=response_model_name,
-        base_url=base_url,
-        api_key=api_key,
-        request_params={
-            "extra_body": {
-                "enable_thinking": False,
-            }
-        },
-    )
-
-
 param = Parameter(config_file_path="./config.yaml")
-model = get_model(
-    api_key=param.response_api_key,
-    base_url=param.response_base_url,
-    response_model_name=param.response_model_name,
-)
 
 
 def get_cypher_team():
-    entity_specifier = EntitySpecifierAgent(param=param, model=model, retries=3)
-    cypher_executor = CypherExecutorAgent(param=param, model=model, retries=3)
-    # question_validator = QuestionValidatorAgent(model=model, retries=3)
+    entity_specifier = EntitySpecifierAgent(
+        param=param,
+        model=OpenAILike(
+            id=param.response_model_name,
+            base_url=param.response_base_url,
+            api_key=param.response_api_key,
+            request_params={
+                "extra_body": {
+                    "enable_thinking": False,
+                }
+            },
+            temperature=0.4,
+        ),
+        retries=3,
+    )
     cypher_team = CypherTeam(
-        param=param, model=model, members=[entity_specifier, cypher_executor]
+        param=param,
+        model=OpenAILike(
+            id=param.response_model_name,
+            base_url=param.response_base_url,
+            api_key=param.response_api_key,
+            request_params={
+                "extra_body": {
+                    "enable_thinking": False,
+                }
+            },
+            temperature=0.4,
+        ),
+        members=[entity_specifier],
     )
     return cypher_team
 
 
-def get_validator():
-    question_validator = QuestionValidatorAgent(model=model, retries=3)
-    return question_validator
-
-
-def get_validate_message(question: str, response: str):
-    return f"问题: {question}\n回答: {response}"
+def get_reflector():
+    reflector = ReflectorAgent(
+        model=OpenAILike(
+            id=param.response_model_name,
+            base_url=param.response_base_url,
+            api_key=param.response_api_key,
+            request_params={
+                "extra_body": {
+                    "enable_thinking": False,
+                }
+            },
+            temperature=0.2,
+        ),
+        retries=3,
+    )
+    return reflector
 
 
 def get_run_response_content(run_response: Union[RunResponse, TeamRunResponse]):

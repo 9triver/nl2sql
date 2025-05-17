@@ -10,7 +10,7 @@ from typing import (
     Union,
 )
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.memory.agent import AgentMemory
@@ -20,27 +20,51 @@ from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 
-from param import Parameter
-from tools.cypher import CypherTools
-from tools.neq4j import Neo4jTools
 from base.agent import Agent
 
 
-class CypherExecutorAgent(Agent):
-    name = "cypher-executor"
-    role = dedent("""我能执行cypher语句并返回执行结果。""")
-    description = None
-    instructions = dedent(
-        """\
-        1. 提取或生成cypher语句
-        2. 执行cypher语句
-        3. 查看执行结果，警告信息和报错信息，整理后告知用户\
-    """
+class Reflection(BaseModel):
+    reflections: str = Field(description="对回答的充分性、冗余性和整体质量的评价与反思")
+    score: int = Field(
+        description="对候选回答质量的评分，范围0-10分",
+        gte=0,
+        lte=10,
     )
+    found_solution: bool = Field(description="回答是否完全解决了问题或任务")
+
+    def as_message(self):
+        return {
+            "role": "human",
+            "content": f"推理过程: {self.reflections}\n评分: {self.score}",
+        }
+
+    @property
+    def normalized_score(self) -> float:
+        return self.score / 10.0
+
+
+class ReflectorAgent(Agent):
+    name = ("reflection-agent",)
+    system_message = ("你是一个能够对回答进行反思和评分的AI助手。",)
+    role = None
+    description = None
+    instructions = None
+
+    @staticmethod
+    def get_prompt():
+        return dedent("""\
+            请对以下用户问题的助手回答进行反思和评分。
+            用户问题：{input}
+            助手回答：{candidate}
+
+            请按照以下格式提供你的反思：
+            反思内容：[你的详细分析和反思]
+            评分：[0-10分的评分]
+            问题解决：[是/否]\
+            """)
 
     def __init__(
         self,
-        param: Parameter,
         *,
         model: Optional[Model] = None,
         name: Optional[str] = name,
@@ -69,7 +93,7 @@ class CypherExecutorAgent(Agent):
         storage: Optional[Storage] = None,
         extra_data: Optional[Dict[str, Any]] = None,
         tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = None,
-        show_tool_calls: bool = True,
+        show_tool_calls: bool = False,
         tool_call_limit: Optional[int] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
         tool_hooks: Optional[List[Callable]] = None,
@@ -82,7 +106,7 @@ class CypherExecutorAgent(Agent):
         search_knowledge: bool = False,
         update_knowledge: bool = False,
         read_tool_call_history: bool = False,
-        system_message: Optional[Union[str, Callable, Message]] = None,
+        system_message: Optional[Union[str, Callable, Message]] = system_message,
         system_message_role: str = "system",
         create_default_system_message: bool = False,
         description: Optional[str] = description,
@@ -90,8 +114,8 @@ class CypherExecutorAgent(Agent):
         instructions: Optional[Union[str, List[str], Callable]] = instructions,
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
-        markdown: bool = True,
-        add_name_to_instructions: bool = False,
+        markdown: bool = False,
+        add_name_to_instructions: bool = True,
         add_datetime_to_instructions: bool = False,
         timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
@@ -102,13 +126,13 @@ class CypherExecutorAgent(Agent):
         retries: int = 3,
         delay_between_retries: int = 1,
         exponential_backoff: bool = False,
-        response_model: Optional[Type[BaseModel]] = None,
-        parse_response: bool = False,
+        response_model: Optional[Type[BaseModel]] = Reflection,
+        parse_response: bool = True,
         structured_outputs: Optional[bool] = None,
-        use_json_mode: bool = False,
+        use_json_mode: bool = True,
         save_response_to_file: Optional[str] = None,
-        stream: Optional[bool] = True,
-        stream_intermediate_steps: bool = True,
+        stream: Optional[bool] = False,
+        stream_intermediate_steps: bool = False,
         team: Optional[List[Agent]] = None,
         team_data: Optional[Dict[str, Any]] = None,
         role: Optional[str] = role,
@@ -119,26 +143,6 @@ class CypherExecutorAgent(Agent):
         monitoring: bool = False,
         telemetry: bool = False,
     ):
-        if tools is None:
-            tools = [
-                CypherTools(
-                    embed_model_name=param.embed_model_name,
-                    embed_base_url=param.embed_base_url,
-                    embed_api_key=param.embed_api_key,
-                ),
-                Neo4jTools(
-                    user=param.DATABASE_USER,
-                    password=param.DATABASE_PASSWORD,
-                    db_uri=param.DATABASE_URL,
-                    database=param.DATABASE_NAME,
-                    embed_model_name=param.embed_model_name,
-                    embed_base_url=param.embed_base_url,
-                    embed_api_key=param.embed_api_key,
-                    labels=True,
-                    relationships=True,
-                    execution=True,
-                ),
-            ]
         super().__init__(
             model=model,
             name=name,
