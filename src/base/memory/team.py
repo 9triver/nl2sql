@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
+
 from agno.memory.team import TeamMemory as AgnoTeamMemory
 
 

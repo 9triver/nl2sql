@@ -1,8 +1,10 @@
+from agno.utils.pprint import pprint_run_response
 from prompt_toolkit import PromptSession
-from utils.utils import get_cypher_team
+
+from workflow.nl2cypher import NL2CypherWorkflow
 
 if __name__ == "__main__":
-    team = get_cypher_team()
+    workflow = NL2CypherWorkflow()
     session = PromptSession("输入你的问题或输入Q退出\n🧑")
     while True:
         message = session.prompt()
@@ -10,4 +12,5 @@ if __name__ == "__main__":
             continue
         if message == "Q":
             break
-        team.print_response(message=message, stream=True)
+        response = workflow.run(question=message)
+        pprint_run_response(response, markdown=True, show_time=True)

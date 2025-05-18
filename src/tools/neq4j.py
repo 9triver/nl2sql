@@ -1,17 +1,17 @@
 import json
-from typing import Optional, Tuple, Set, List, Dict, Any, Callable
 from textwrap import dedent
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+
 from agno.tools import Toolkit
-from neo4j import GraphDatabase, basic_auth, Record
-from neo4j.graph import Node, Relationship, Path
-from neo4j.time import DateTime
-from neo4j.exceptions import ClientError, CypherSyntaxError
-from neo4j import ResultSummary
-from neo4j_haystack.client import Neo4jClient, Neo4jClientConfig
-from haystack.utils import Secret
-from haystack.components.embedders import OpenAITextEmbedder
-from neo4j_haystack.client.neo4j_client import DEFAULT_NEO4J_DATABASE
 from graphviz import Digraph
+from haystack.components.embedders import OpenAITextEmbedder
+from haystack.utils import Secret
+from neo4j import GraphDatabase, Record, ResultSummary, basic_auth
+from neo4j.exceptions import ClientError, CypherSyntaxError
+from neo4j.graph import Node, Path, Relationship
+from neo4j.time import DateTime
+from neo4j_haystack.client import Neo4jClient, Neo4jClientConfig
+from neo4j_haystack.client.neo4j_client import DEFAULT_NEO4J_DATABASE
 
 
 class Neo4jTools(Toolkit):

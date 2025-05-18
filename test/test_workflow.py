@@ -1,9 +1,11 @@
-import sys, os
+import os
+import sys
 
 sys.path.insert(0, os.path.abspath("../src"))
 
-from workflow.nl2cypher import NL2CypherWorkflow
 from agno.utils.pprint import pprint_run_response
+
+from workflow.nl2cypher import NL2CypherWorkflow
 
 
 class TestWorkflow:
@@ -19,6 +21,6 @@ class TestWorkflow:
 
     def test_question_2(self):
         response = self.workflow.run(
-            question="名为‘智能一体化运维支撑平台‘和’智能一体化运维支撑平台oracle主库生产环境数据源‘两个节点之间有多少条节点数不超过5的路径？"
+            question="智能一体化运维支撑平台和一体化运维支撑平台oracle生产数据源两个节点之间有多少条节点数不超过5的路径？"
         )
         pprint_run_response(response, markdown=True)

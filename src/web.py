@@ -1,11 +1,8 @@
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
-from typing import Iterator, Union
-from agno.workflow import RunResponse
-from agno.run.team import TeamRunResponse
 
-from workflow.nl2cypher import NL2CypherWorkflow
 from utils.utils import get_run_response_content
+from workflow.nl2cypher import NL2CypherWorkflow
 
 app = FastAPI()
 

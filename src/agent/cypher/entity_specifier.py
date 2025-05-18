@@ -1,28 +1,19 @@
 from textwrap import dedent
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Type,
-    Union,
-)
+from typing import Any, Callable, Dict, List, Literal, Optional, Type, Union
 
-from pydantic import BaseModel
-from agno.models.base import Model
-from agno.models.message import Message
+from agno.knowledge.agent import AgentKnowledge
 from agno.memory.agent import AgentMemory
 from agno.memory.v2.memory import Memory
-from agno.knowledge.agent import AgentKnowledge
+from agno.models.base import Model
+from agno.models.message import Message
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
+from pydantic import BaseModel
 
+from base.agent import Agent
 from param import Parameter
 from tools.neq4j import Neo4jTools
-from base.agent import Agent
 
 
 class EntitySpecifierAgent(Agent):
@@ -90,7 +81,7 @@ class EntitySpecifierAgent(Agent):
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
         markdown: bool = False,
-        add_name_to_instructions: bool = False,
+        add_name_to_instructions: bool = True,
         add_datetime_to_instructions: bool = False,
         timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
@@ -106,8 +97,8 @@ class EntitySpecifierAgent(Agent):
         structured_outputs: Optional[bool] = None,
         use_json_mode: bool = False,
         save_response_to_file: Optional[str] = None,
-        stream: Optional[bool] = True,
-        stream_intermediate_steps: bool = True,
+        stream: Optional[bool] = False,
+        stream_intermediate_steps: bool = False,
         team: Optional[List[Agent]] = None,
         team_data: Optional[Dict[str, Any]] = None,
         role: Optional[str] = role,

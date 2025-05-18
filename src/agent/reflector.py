@@ -1,24 +1,15 @@
 from textwrap import dedent
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Type,
-    Union,
-)
+from typing import Any, Callable, Dict, List, Literal, Optional, Type, Union
 
-from pydantic import BaseModel, Field
-from agno.models.base import Model
-from agno.models.message import Message
+from agno.knowledge.agent import AgentKnowledge
 from agno.memory.agent import AgentMemory
 from agno.memory.v2.memory import Memory
-from agno.knowledge.agent import AgentKnowledge
+from agno.models.base import Model
+from agno.models.message import Message
 from agno.storage.base import Storage
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
+from pydantic import BaseModel, Field
 
 from base.agent import Agent
 
@@ -32,11 +23,11 @@ class Reflection(BaseModel):
     )
     found_solution: bool = Field(description="回答是否完全解决了问题或任务")
 
-    def as_message(self):
-        return {
-            "role": "human",
-            "content": f"推理过程: {self.reflections}\n评分: {self.score}",
-        }
+    def __repr__(self):
+        return f"Reflection(reflections='{self.reflections}', score={self.score}, found_solution={self.found_solution})"
+
+    def as_message(self) -> str:
+        return f"推理过程: {self.reflections}\n评分: {self.score}"
 
     @property
     def normalized_score(self) -> float:
@@ -53,9 +44,9 @@ class ReflectorAgent(Agent):
     @staticmethod
     def get_prompt():
         return dedent("""\
-            请对以下用户问题的助手回答进行反思和评分。
+            请对以下用户问题和当前中间推理状态进行反思和评分。
             用户问题：{input}
-            助手回答：{candidate}
+            中间推理状态：{candidate}
 
             请按照以下格式提供你的反思：
             反思内容：[你的详细分析和反思]

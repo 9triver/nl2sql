@@ -1,5 +1,6 @@
-import yaml
 from os import getenv
+
+import yaml
 
 
 class Parameter:

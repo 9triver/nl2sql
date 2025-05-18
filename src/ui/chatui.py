@@ -1,12 +1,13 @@
-import gradio as gr
-from typing import Iterator, Union
-from gradio import ChatMessage
 from datetime import datetime
-from agno.workflow import RunResponse
-from agno.run.team import TeamRunResponse
+from typing import Iterator, Union
 
-from workflow.nl2cypher import NL2CypherWorkflow
+import gradio as gr
+from agno.run.team import TeamRunResponse
+from agno.workflow import RunResponse
+from gradio import ChatMessage
+
 from utils.utils import get_run_response
+from workflow.nl2cypher import NL2CypherWorkflow
 
 USER_AVATAR = "./assets/user.png"
 FAVICON = "./assets/robot.png"

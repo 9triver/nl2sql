@@ -1,8 +1,7 @@
-from agno.memory.v2.manager import MemoryManager as AgnoMemoryManager
-
 from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
+from agno.memory.v2.manager import MemoryManager as AgnoMemoryManager
 from agno.models.message import Message
 
 

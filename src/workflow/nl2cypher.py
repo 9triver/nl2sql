@@ -1,26 +1,27 @@
-import os
+import asyncio
 import collections.abc
+import os
 from types import GeneratorType
+from typing import Any, Callable, Dict, Iterator, List, Literal, Optional, Union, cast
 from uuid import uuid4
-from typing import Dict, Optional, Literal, Iterator, Union, Any, Callable, cast
 
-from agno.memory.v2.memory import Memory
 from agno.memory.v2.db.sqlite import SqliteMemoryDb
+from agno.memory.v2.memory import Memory
 from agno.memory.workflow import WorkflowMemory, WorkflowRun
-from agno.storage.base import Storage
-from agno.workflow import Workflow, RunResponse
 from agno.run.team import TeamRunResponse
-from storage.yaml import YamlStorage
-from agno.utils.log import log_debug, log_info, log_error, log_warning
+from agno.storage.base import Storage
+from agno.utils.log import log_debug, log_error, log_info, log_warning
+from agno.workflow import RunResponse, Workflow
 
-from workflow.tree import TreeState, Node
 from agent.reflector import Reflection, ReflectorAgent
 from base.memory.manager import MemoryManager
-from utils.utils import get_cypher_team, get_reflector
+from storage.yaml import YamlStorage
+from utils.utils import get_cypher_tree_team, get_reflector
+from workflow.tree import Node, TreeState
 
 
 class NL2CypherWorkflow(Workflow):
-    cypher_team = get_cypher_team()
+    cypher_tree_team = get_cypher_tree_team()
     reflector = get_reflector()
     database_dir = "./tmp"
     storage = YamlStorage(
@@ -69,14 +70,15 @@ class NL2CypherWorkflow(Workflow):
         self.reflection_prompt = ReflectorAgent.get_prompt()
 
     def run(
-        self,
-        question: str,
+        self, question: str, search_depth: int = 5, expand_num: int = 3
     ) -> Iterator[Union[RunResponse, TeamRunResponse]]:
         """This is where the main logic of the workflow is implemented."""
         try:
             log_info(f"Processing question: {question}")
-            result = self.run_lats(question)
-            log_info(f"LATS algorithm completed. Result: {result[:100]}...")
+            result = self.run_lats(
+                input=question, search_depth=search_depth, expand_num=expand_num
+            )
+            log_info(f"LATS algorithm completed. Result: {result}...")
         except Exception as e:
             result = f"An error occurred while processing the question: {e!s}"
             log_error(
@@ -85,50 +87,39 @@ class NL2CypherWorkflow(Workflow):
 
         yield RunResponse(run_id=self.run_id, content=result)
 
-    def reflection_chain(self, inputs: Dict[str, Any]) -> Reflection:
-        """Processes input data to generate a reflection with error handling.
+    def reflection_chain(
+        self, input: str, candidate: Optional[Union[str, List[str]]] = None
+    ) -> Reflection:
+        """Generates reflection on Cypher query generation process by analyzing input and candidate.
 
-        Extracts candidate content from various formats, constructs a reflection prompt,
-        and executes the reflection process. Gracefully handles exceptions by returning
-        an error-containing Reflection object.
+        Processes either a single candidate query or the last entry from a list of candidates,
+        then generates quality assessment and improvement suggestions.
 
         Args:
-            inputs: Input dictionary containing:
-                - 'input': Original user input string
-                - 'candidate': Query candidate which can be in multiple formats:
-                    * List: Uses last item's 'content' if dict, else string representation
-                    * Dict: Extracts 'content' key if available
-                    * String: Used directly
-                    * Other types: Converted to string
+            input: Original natural language input from the user
+            candidate: Candidate Cypher query(ies) to evaluate. Can be:
+                - Single query string
+                - List of query strings
+                - None for direct input analysis
 
         Returns:
             Reflection: Object containing:
-                - reflections: Generated analysis or error message
-                - score: Confidence score (0 when error occurs)
-                - found_solution: False when error occurs
+                - reflections: Textual analysis of the candidate
+                - score: Quality score between 0-1
+                - found_solution: Whether candidate satisfies requirements
         """
         try:
             candidate_content = ""
-            if "candidate" in inputs:
-                candidate = inputs["candidate"]
-                if isinstance(candidate, list):
-                    candidate_content = (
-                        candidate[-1]["content"]
-                        if isinstance(candidate[-1], dict)
-                        and "content" in candidate[-1]
-                        else str(candidate[-1])
-                    )
-                elif isinstance(candidate, dict):
-                    candidate_content = candidate.get("content", str(candidate))
-                elif isinstance(candidate, str):
-                    candidate_content = candidate
-                else:
-                    candidate_content = str(candidate)
+            if candidate:
+                candidate_content = (
+                    candidate[-1] if isinstance(candidate, list) else candidate
+                )
 
             message = self.reflection_prompt.format(
-                input=inputs.get("input", ""), candidate=candidate_content
+                input=input, candidate=candidate_content
             )
             reflection: Reflection = self.reflector.run(message=message).content
+            log_info(f"reflection:{reflection}")
             return reflection
         except Exception as e:
             log_error(f"Error in reflection_chain: {e!s}", exc_info=True)
@@ -137,89 +128,94 @@ class NL2CypherWorkflow(Workflow):
             )
 
     def generate_initial_response(self, state: TreeState) -> TreeState:
-        """Generates initial response and constructs the conversation tree root node.
+        """Generates the initial response and reflection for the conversation flow.
 
-        Processes the user input through the Cypher team workflow, generates a reflection
-        on the initial response, and constructs the initial tree structure.
+        Processes the input state through the Cypher generation team workflow,
+        creates an initial response node with reflection, and constructs the
+        initial conversation tree structure.
 
         Args:
-            state: Current tree state containing:
-                - input: User query string to process
+            state: The current conversation state containing user input and
+                conversation history. Expects state.input to contain the latest
+                user query.
 
         Returns:
-            TreeState: New state containing:
-                - root: Node object with:
-                    - messages: List containing initial assistant response
-                    - reflection: Processed reflection on the response
-                  (None if processing fails)
-                - input: Preserved original user input
+            TreeState: Updated state containing the root node with initial response,
+                reflection metadata, and original input. Returns empty root node
+                on processing errors.
         """
+        state_input = state.input
         try:
-            team_response = self.cypher_team.run(message=state["input"])
+            team_response = self.cypher_tree_team.run(message=state_input)
             team_response_content = str(team_response.content).strip()
 
             # Generate reflection
-            reflection_input = {
-                "input": state["input"],
-                "candidate": team_response_content,
-            }
-            reflection = self.reflection_chain(inputs=reflection_input)
+            reflection = self.reflection_chain(
+                input=state_input, candidate=team_response_content
+            )
 
             # Create Node with messages as a list containing a single dict
-            messages = [{"role": "assistant", "content": team_response_content}]
+            messages = [team_response_content]
             root = Node(messages=messages, reflection=reflection)
 
-            return TreeState(root=root, input=state["input"])
+            return TreeState(root=root, input=state_input)
         except Exception as e:
-            return TreeState(root=None, input=state["input"])
+            return TreeState(root=None, input=state_input)
 
-    def generate_candidates(self, messages: list, num: int):
-        """Generates multiple Cypher query candidates through iterative executions.
+    def generate_candidates(self, messages: List[str], num: int) -> List[str]:
+        """Generates multiple candidate Cypher queries through parallel execution.
+
+        Uses asynchronous tasks to generate potential Cypher query candidates based
+        on the most recent message. Implements error handling and fallback values
+        for failed generations.
 
         Args:
-            messages (list): Conversation history containing interaction messages.
-                            Uses the last message as input query.
-            num (int): Number of candidate queries to generate
+            messages: Conversation history containing natural language messages
+            num: Number of candidate queries to generate in parallel
 
         Returns:
-            list[str]: List containing either successfully generated Cypher queries
-                      or error messages for failed attempts
+            List of generated Cypher queries or error placeholders. Each entry will be:
+            - A valid Cypher query string if generation succeeds
+            - "Failed to generate candidate." if any error occurs
         """
-        candidates = []
-        for _ in range(num):
+
+        async def _wrap_team_arun(message: str):
             try:
-                # Use the assistant to generate a response
-                last_message = (
-                    messages[-1]["content"]
-                    if messages and isinstance(messages[-1], dict)
-                    else str(messages[-1])
-                )
-                team_response = self.cypher_team.run(message=last_message)
-                candidates.append(team_response)
+                return await self.cypher_tree_team.arun(message=message)
             except Exception as e:
-                log_error(f"Error generating candidate: {e!s}")
-                candidates.append("Failed to generate candidate.")
-        if not candidates:
-            log_warning("No candidates were generated.")
+                log_error(f"Error in async candidate generation: {e!s}")
+                return e
+
+        async def _agenerate_candidates():
+            last_message = messages[-1]
+            tasks = [_wrap_team_arun(last_message) for _ in range(num)]
+            return await asyncio.gather(*tasks)
+
+        candidates = None
+        try:
+            results = asyncio.run(_agenerate_candidates())
+            candidates = [
+                str(result.content).strip()
+                if not isinstance(result, Exception)
+                else "Failed to generate candidate."
+                for result in results
+            ]
+        except Exception as e:
+            log_error(f"Error generating candidate: {e!s}")
+            candidates = ["Failed to generate candidate."] * num
         return candidates
 
-    def expand(self, state: TreeState, num: int) -> dict:
-        """Expands the search tree by generating and evaluating new candidates.
-
-        Performs one iteration of Monte Carlo Tree Search expansion:
-        1. Selects the best existing node using UCB1
-        2. Generates new candidate queries using the current trajectory
-        3. Creates child nodes with reflection-based evaluations
-        4. Adds new nodes to the search tree
+    def expand(self, state: TreeState, num: int) -> TreeState:
+        """Expand the search tree by generating and evaluating new Cypher query candidates.
 
         Args:
-            state: Current tree state containing root node and search context
-            num: Number of candidate queries to generate in this expansion phase
+            state: Current state of the exploration tree containing query candidates
+            num: Number of new candidates to generate and evaluate (must be > 0)
 
         Returns:
-            Updated tree state with new nodes added to the best candidate's children
+            Updated tree state with new candidate nodes added to the best existing branch
         """
-        root = state["root"]
+        root = state.root
         best_candidate: Node = root.best_child if root.children else root
         messages = best_candidate.get_trajectory()
 
@@ -229,96 +225,82 @@ class NL2CypherWorkflow(Workflow):
         # Reflect on each candidate using Autogen's AssistantAgent
         reflections = []
         for candidate in new_candidates:
-            reflection = self.reflection_chain(
-                {"input": state["input"], "candidate": candidate}
-            )
+            reflection = self.reflection_chain(input=state.input, candidate=candidate)
             reflections.append(reflection)
 
         # Grow tree
         child_nodes = [
             Node(
-                [{"role": "assistant", "content": candidate}],
+                [candidate],
                 parent=best_candidate,
                 reflection=reflection,
             )
             for candidate, reflection in zip(new_candidates, reflections)
         ]
+        log_info(f"expand_nodes:{child_nodes}")
+
         best_candidate.children.extend(child_nodes)
 
         return state
 
-    def should_loop(self, state: Dict[str, Any]) -> Literal["expand", "end"]:
+    def should_loop(self, state: TreeState) -> Literal["expand", "end"]:
         """Determine whether to continue the tree search."""
-        root = state["root"]
+        root = state.root
         if root.is_solved:
             return "end"
         if root.height > 5:
             return "end"
         return "expand"
 
-    def run_lats(self, input_query: str, max_iterations: int = 10, expand_num: int = 5):
-        """Execute the Look Ahead Tree Search (LATS) algorithm to generate Cypher queries.
+    def run_lats(self, input: str, search_depth: int = 5, expand_num: int = 3):
+        """Execute the Language Agent Tree Search (LATS) process for generating Cypher queries.
 
-        Performs an iterative search process that combines initial response generation
-        with tree expansion and reflection to refine the best Cypher query solution.
+        Implements a multi-step search algorithm that combines language model reasoning with
+        graph-based exploration to refine and validate Cypher query generation.
 
         Args:
-            input_query: Natural language query to be converted to Cypher
-            max_iterations: Maximum number of refinement iterations (default: 10)
-            expand_num: Number of candidate expansions per iteration (default: 5)
+            input: Natural language input describing the desired data query
+            search_depth: Maximum depth for the search tree exploration (default: 5)
+            expand_num: Number of nodes to expand at each depth level (default: 3)
 
         Returns:
-            str: Valid Cypher query string or error message
+            str: The final validated Cypher query string or error message
         """
         try:
-            state = {"input": input_query, "root": None}
+            state = TreeState(input=input, root=None)
             try:
-                state = self.generate_initial_response(state)
-                if (
-                    not isinstance(state, dict)
-                    or "root" not in state
-                    or state["root"] is None
-                ):
+                state = self.generate_initial_response(state=state)
+                if not isinstance(state, TreeState) or state.root is None:
                     log_error(
                         "Initial response generation failed or returned invalid state"
                     )
                     return "Failed to generate initial response."
-                log_info("Initial response generated successfully")
+                log_info(f"Initial response:{state}")
             except Exception as e:
                 log_error(f"Error generating initial response: {e!s}", exc_info=True)
                 return "Failed to generate initial response due to an unexpected error."
 
-            for iteration in range(max_iterations):
+            for depth in range(search_depth):
                 action = self.should_loop(state)
                 if action == "end":
-                    log_info(f"Search ended after {iteration + 1} iterations")
+                    log_info(f"Search ended after {depth + 1} depth")
                     break
                 try:
                     state = self.expand(state=state, num=expand_num)
-                    log_info(f"Completed iteration {iteration + 1}")
+                    log_info(f"Completed depth {depth + 1}")
                 except Exception as e:
-                    log_error(
-                        f"Error during iteration {iteration + 1}: {e!s}", exc_info=True
-                    )
+                    log_error(f"Error during depth {depth + 1}: {e!s}", exc_info=True)
                     continue
 
-            if (
-                not isinstance(state, dict)
-                or "root" not in state
-                or state["root"] is None
-            ):
+            if not isinstance(state, TreeState) or state.root is None:
                 return "No valid solution found due to an error in the search process."
 
-            solution_node = state["root"].get_best_solution()
+            solution_node = state.root.get_best_solution()
             best_trajectory = solution_node.get_trajectory(include_reflections=False)
             if not best_trajectory:
                 return "No solution found in the search process."
 
-            result = (
-                best_trajectory[-1].get("content")
-                if isinstance(best_trajectory[-1], dict)
-                else str(best_trajectory[-1])
-            )
+            result = best_trajectory[-1]
             log_info("LATS search completed successfully")
             return result
         except Exception as e:

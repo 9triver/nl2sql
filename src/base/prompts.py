@@ -1,9 +1,8 @@
 import json
 from typing import Union
 
-from pydantic import BaseModel
-
 from agno.utils.log import log_warning
+from pydantic import BaseModel
 
 
 def get_json_output_prompt(response_model: Union[str, list, BaseModel]) -> str:

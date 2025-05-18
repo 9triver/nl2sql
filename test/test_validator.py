@@ -1,8 +1,9 @@
-import sys, os
+import os
+import sys
 
 sys.path.insert(0, os.path.abspath("../src"))
 
-from utils.utils import get_validator, get_validate_message
+from utils.utils import get_validate_message, get_validator
 
 
 class TestValidator:

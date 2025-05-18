@@ -1,9 +1,11 @@
-import sys, os
+import os
+import sys
 
 sys.path.insert(0, os.path.abspath("../src"))
 from textwrap import dedent
-from tools.neq4j import Neo4jTools
+
 from param import Parameter
+from tools.neq4j import Neo4jTools
 
 
 class TestNeo4jTools:

@@ -1,16 +1,17 @@
 import json
-import numpy as np
 from typing import Union
-from pydantic import BaseModel
+
+import numpy as np
 from agno.models.openai import OpenAILike
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
+from pydantic import BaseModel
 
 from agent.cypher.cypher_team import CypherTeam
+from agent.cypher.cypher_tree_team import CypherTreeTeam
 from agent.cypher.entity_specifier import EntitySpecifierAgent
 from agent.reflector import ReflectorAgent
 from param import Parameter
-
 
 param = Parameter(config_file_path="./config.yaml")
 
@@ -43,6 +44,40 @@ def get_cypher_team():
                 }
             },
             temperature=0.4,
+        ),
+        members=[entity_specifier],
+    )
+    return cypher_team
+
+
+def get_cypher_tree_team():
+    entity_specifier = EntitySpecifierAgent(
+        param=param,
+        model=OpenAILike(
+            id=param.response_model_name,
+            base_url=param.response_base_url,
+            api_key=param.response_api_key,
+            request_params={
+                "extra_body": {
+                    "enable_thinking": False,
+                }
+            },
+            temperature=0.2,
+        ),
+        retries=3,
+    )
+    cypher_team = CypherTreeTeam(
+        param=param,
+        model=OpenAILike(
+            id=param.response_model_name,
+            base_url=param.response_base_url,
+            api_key=param.response_api_key,
+            request_params={
+                "extra_body": {
+                    "enable_thinking": False,
+                }
+            },
+            temperature=0.8,
         ),
         members=[entity_specifier],
     )

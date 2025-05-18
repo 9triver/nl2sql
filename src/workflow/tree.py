@@ -1,6 +1,7 @@
 import math
 from collections import deque
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
+
 from typing_extensions import TypedDict
 
 from agent.reflector import Reflection
@@ -9,7 +10,7 @@ from agent.reflector import Reflection
 class Node:
     def __init__(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[str],
         reflection: Optional[Reflection] = None,
         parent: Optional["Node"] = None,
     ):
@@ -84,7 +85,7 @@ class Node:
             return self.messages + [self.reflection.as_message()]
         return self.messages
 
-    def get_trajectory(self, include_reflections: bool = True) -> List[Dict[str, str]]:
+    def get_trajectory(self, include_reflections: bool = True) -> List[str]:
         """Get messages representing this search branch."""
         messages = []
         node = self
@@ -124,6 +125,10 @@ class Node:
             parent = parent.parent
 
 
-class TreeState(TypedDict):
+class TreeState:
     root: Node  # The full tree
     input: str  # The original input
+
+    def __init__(self, root: Node, input: str) -> None:
+        self.root = root
+        self.input = input
