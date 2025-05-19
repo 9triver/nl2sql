@@ -1,8 +1,6 @@
 import math
 from collections import deque
-from typing import Dict, List, Optional
-
-from typing_extensions import TypedDict
+from typing import List, Optional
 
 from agent.reflector import Reflection
 
@@ -21,7 +19,7 @@ class Node:
         self.visits = 0
         self.reflection = reflection
         self.depth = parent.depth + 1 if parent is not None else 1
-        self._is_solved = reflection.found_solution if reflection else False
+        self._is_solved = reflection.end if reflection else False
         if self._is_solved:
             self._mark_tree_as_solved()
         if reflection:

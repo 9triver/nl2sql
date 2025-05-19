@@ -10,7 +10,6 @@ from agno.run.response import RunResponse, RunResponseExtraData
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.log import log_debug, log_warning
-from agno.utils.prompts import get_json_output_prompt
 from agno.utils.timer import Timer
 
 from .prompts import get_json_output_prompt

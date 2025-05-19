@@ -1,7 +1,6 @@
 import json
 from typing import Union
 
-import numpy as np
 from agno.models.openai import OpenAILike
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
@@ -12,91 +11,79 @@ from agent.cypher.cypher_tree_team import CypherTreeTeam
 from agent.cypher.entity_specifier import EntitySpecifierAgent
 from agent.reflector import ReflectorAgent
 from param import Parameter
+from tools.cypher import CypherTools
+from tools.neq4j import Neo4jTools
 
 param = Parameter(config_file_path="./config.yaml")
+
+
+def get_model(temperature: float = 1.0, enable_thinking: bool = False):
+    return OpenAILike(
+        id=param.response_model_name,
+        base_url=param.response_base_url,
+        api_key=param.response_api_key,
+        request_params={
+            "extra_body": {
+                "enable_thinking": enable_thinking,
+            }
+        },
+        temperature=temperature,
+    )
 
 
 def get_cypher_team():
     entity_specifier = EntitySpecifierAgent(
         param=param,
-        model=OpenAILike(
-            id=param.response_model_name,
-            base_url=param.response_base_url,
-            api_key=param.response_api_key,
-            request_params={
-                "extra_body": {
-                    "enable_thinking": False,
-                }
-            },
-            temperature=0.4,
-        ),
+        model=get_model(temperature=0.4),
         retries=3,
     )
     cypher_team = CypherTeam(
         param=param,
-        model=OpenAILike(
-            id=param.response_model_name,
-            base_url=param.response_base_url,
-            api_key=param.response_api_key,
-            request_params={
-                "extra_body": {
-                    "enable_thinking": False,
-                }
-            },
-            temperature=0.4,
-        ),
+        model=get_model(temperature=0.4),
         members=[entity_specifier],
     )
     return cypher_team
+
+
+team_tools = [
+    CypherTools(
+        embed_model_name=param.embed_model_name,
+        embed_base_url=param.embed_base_url,
+        embed_api_key=param.embed_api_key,
+    ),
+    Neo4jTools(
+        user=param.DATABASE_USER,
+        password=param.DATABASE_PASSWORD,
+        db_uri=param.DATABASE_URL,
+        database=param.DATABASE_NAME,
+        embed_model_name=param.embed_model_name,
+        embed_base_url=param.embed_base_url,
+        embed_api_key=param.embed_api_key,
+        labels=True,
+        relationships=True,
+        execution=True,
+    ),
+]
 
 
 def get_cypher_tree_team():
     entity_specifier = EntitySpecifierAgent(
         param=param,
-        model=OpenAILike(
-            id=param.response_model_name,
-            base_url=param.response_base_url,
-            api_key=param.response_api_key,
-            request_params={
-                "extra_body": {
-                    "enable_thinking": False,
-                }
-            },
-            temperature=0.2,
-        ),
+        model=get_model(temperature=0.2),
         retries=3,
     )
-    cypher_team = CypherTreeTeam(
+    cypher_tree_team = CypherTreeTeam(
         param=param,
-        model=OpenAILike(
-            id=param.response_model_name,
-            base_url=param.response_base_url,
-            api_key=param.response_api_key,
-            request_params={
-                "extra_body": {
-                    "enable_thinking": False,
-                }
-            },
-            temperature=0.8,
-        ),
+        model=get_model(temperature=0.8),
+        tools=team_tools,
         members=[entity_specifier],
     )
-    return cypher_team
+    return cypher_tree_team
 
 
 def get_reflector():
     reflector = ReflectorAgent(
-        model=OpenAILike(
-            id=param.response_model_name,
-            base_url=param.response_base_url,
-            api_key=param.response_api_key,
-            request_params={
-                "extra_body": {
-                    "enable_thinking": False,
-                }
-            },
-            temperature=0.2,
-        ),
+        model=get_model(temperature=0.2),
         retries=3,
     )
     return reflector

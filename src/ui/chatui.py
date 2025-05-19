@@ -36,7 +36,7 @@ class ChatUI:
         think_message = ChatMessage(
             content="",
             role="assistant",
-            metadata={"title": f"Think ...", "id": 0, "status": "done"},
+            metadata={"title": "Think ...", "id": 0, "status": "done"},
         )
         chat_message = ChatMessage(
             content="", role="assistant", metadata={"id": 1, "status": "done"}

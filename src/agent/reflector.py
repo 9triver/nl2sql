@@ -15,19 +15,19 @@ from base.agent import Agent
 
 
 class Reflection(BaseModel):
-    reflections: str = Field(description="对回答的充分性、冗余性和整体质量的评价与反思")
+    plan: str = Field(description="对推理中间状态的分析评价，以及下一步的计划")
     score: int = Field(
-        description="对候选回答质量的评分，范围0-10分",
+        description="对候选推理中间状态质量的评分，范围0-10分",
         gte=0,
         lte=10,
     )
-    found_solution: bool = Field(description="回答是否完全解决了问题或任务")
+    end: bool = Field(description="推理中间状态是否达到推理终止点(无需进一步推理)")
 
     def __repr__(self):
-        return f"Reflection(reflections='{self.reflections}', score={self.score}, found_solution={self.found_solution})"
+        return f"Reflection(plan='{self.plan}', score={self.score}, end={self.end})"
 
     def as_message(self) -> str:
-        return f"推理过程: {self.reflections}\n评分: {self.score}"
+        return f"分析与计划: {self.plan}\n评分: {self.score}"
 
     @property
     def normalized_score(self) -> float:
@@ -36,7 +36,7 @@ class Reflection(BaseModel):
 
 class ReflectorAgent(Agent):
     name = ("reflection-agent",)
-    system_message = ("你是一个能够对回答进行反思和评分的AI助手。",)
+    system_message = ("你是一个能够对推理中间状态进行反思和评分的AI助手。",)
     role = None
     description = None
     instructions = None
@@ -49,9 +49,9 @@ class ReflectorAgent(Agent):
             中间推理状态：{candidate}
 
             请按照以下格式提供你的反思：
-            反思内容：[你的详细分析和反思]
+            计划：[你的详细分析和下一步计划]
             评分：[0-10分的评分]
-            问题解决：[是/否]\
+            终止：[是/否]\
             """)
 
     def __init__(
