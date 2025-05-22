@@ -41,14 +41,6 @@ class CypherTeam(Team):
     )
     database_dir = "./tmp"
     storage = YamlStorage(dir_path=os.path.join(database_dir, "team"), mode="team")
-    memory = TeamMemory(
-        member_interaction_num=3,
-        db=SqliteMemoryDb(
-            table_name="team",
-            db_file=os.path.join(database_dir, "team/memory.db"),
-        ),
-        manager=MemoryManager(),
-    )
 
     def __init__(
         self,
@@ -80,7 +72,7 @@ class CypherTeam(Team):
         share_member_interactions: bool = True,
         get_member_information_tool: bool = False,
         search_knowledge: bool = False,
-        read_team_history: bool = True,
+        read_team_history: bool = False,
         tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = None,
         show_tool_calls: bool = True,
         tool_call_limit: Optional[int] = None,
@@ -89,13 +81,13 @@ class CypherTeam(Team):
         response_model: Optional[Type[BaseModel]] = None,
         use_json_mode: bool = False,
         parse_response: bool = False,
-        memory: Optional[Union[TeamMemory, Memory]] = memory,
+        memory: Optional[Union[TeamMemory, Memory]] = None,
         enable_agentic_memory: bool = False,
         enable_user_memories: bool = False,
         add_memory_references: Optional[bool] = False,
         enable_session_summaries: bool = False,
         add_session_summary_references: Optional[bool] = False,
-        enable_team_history: bool = True,
+        enable_team_history: bool = False,
         num_of_interactions_from_history: int = None,
         num_history_runs: int = 3,
         storage: Optional[Storage] = storage,

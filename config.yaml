@@ -1,17 +1,17 @@
 models:
-  response_model: # 用于回答的模型
-    model_name: Qwen/Qwen3-32B # 所用模型的名称
-    base_url: https://api-inference.modelscope.cn/v1/ # 所用模型的转发地址
-    api_key_name: MODELSCOPE_API_KEY # 所用的api_key的环境变量名称
+  response_model: # 回答模型的环境变量
+    model_name: MODEL_NAME # 所用模型的名称
+    base_url: MODEL_BASE_URL # 所用模型的转发地址
+    api_key: MODEL_API_KEY # 所用的api_key的环境变量名称
   
-  embed_model: # 用于嵌入的模型
-    model_name: m3e-base
-    base_url: http://localhost:9997/v1
-    api_key_name: null
+  embed_model: # 嵌入模型的环境变了
+    model_name: EMBED_NAME
+    base_url: EMBED_BASE_URL
+    api_key: EMBED_API_KEY
 
 
-database:
-  URL : "neo4j://192.168.130.19:7688"
-  USER : "neo4j"
-  PASSWORD : "neo4j123!!"
-  NAME : "neo4j"
+database: # 数据库环境变量
+  URL : DATABASE_URL
+  USER : DATABASE_USER
+  PASSWORD : DATABASE_PASSWORD
+  NAME : DATABASE_NAME

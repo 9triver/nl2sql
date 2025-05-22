@@ -1,0 +1,21 @@
+services:
+  nl2cypher:
+    build: .
+    network_mode: host
+    image: nl2cypher
+    container_name: nl2cypher
+    stdin_open: true 
+    tty: true 
+    restart: unless-stopped 
+    environment:
+      - PYTHONPATH=/app/src
+      - MODEL_NAME=Qwen/Qwen3-32B
+      - MODEL_BASE_URL=https://api-inference.modelscope.cn/v1/
+      - MODEL_API_KEY=b73babf6-e8e6-43a3-aef2-7f7d2c58fd71
+      - EMBED_NAME=bge-m3
+      - EMBED_BASE_URL=http://localhost:9997/v1
+      - EMBED_API_KEY=null
+      - DATABASE_URL=neo4j://192.168.130.24:7687
+      - DATABASE_USER=neo4j
+      - DATABASE_PASSWORD=neo4j123!!
+      - DATABASE_NAME=neo4j

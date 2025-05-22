@@ -1,7 +1,9 @@
 import json
+from textwrap import dedent
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from agno.tools import Toolkit
+from agno.utils.log import log_error
 from graphviz import Digraph
 from haystack.components.embedders import OpenAITextEmbedder
 from haystack.utils import Secret
@@ -11,6 +13,7 @@ from neo4j.graph import Node, Path, Relationship
 from neo4j.time import DateTime
 from neo4j_haystack.client import Neo4jClient, Neo4jClientConfig
 from neo4j_haystack.client.neo4j_client import DEFAULT_NEO4J_DATABASE
+from tqdm import tqdm
 
 
 class Neo4jTools(Toolkit):
@@ -68,6 +71,15 @@ class Neo4jTools(Toolkit):
         self._driver = GraphDatabase.driver(uri=db_uri, auth=basic_auth(user, password))
         self._driver.verify_connectivity()
 
+        client_config = Neo4jClientConfig(
+            url=self.db_uri,
+            database=self.database,
+            username=self.user,
+            password=self.password,
+        )
+        self._neo4j_client = Neo4jClient(client_config)
+        self._neo4j_client.verify_connectivity()
+
         self.text_embedder = OpenAITextEmbedder(
             model=embed_model_name,
             api_base_url=embed_base_url,
@@ -103,6 +115,28 @@ class Neo4jTools(Toolkit):
         ]
         return f"Relationship:{relationships}"
 
+    def embed_nodes(self):
+        _, records = self._neo4j_client.execute_read(query="MATCH (n) RETURN n")
+        for record in tqdm(records, desc="embedding"):
+            id = record["n"]["id"]
+            text_to_embed = str(obj=record["n"])
+            embedding = self.text_embedder.run(text=text_to_embed)["embedding"]
+            self._neo4j_client.execute_write(
+                query=f"MATCH (n {{id: '{id}'}}) SET n.embedding = {embedding} RETURN n"
+            )
+
+        labels, _, _ = self._execute_cypher("""CALL db.labels() """)
+        labels = [label["label"] for label in labels]
+        for label in labels:
+            self._neo4j_client.create_index_if_missing(
+                index_name=f"index_{label}",
+                label=label,
+                property_key="embedding",
+                dimension=len(embedding),
+                similarity_function="cosine",
+            )
+        return
+
     def get_similar_node(self, query: str) -> str:
         """使用该函数查找与给定查询相似的节点。
 
@@ -113,22 +147,8 @@ class Neo4jTools(Toolkit):
             str: JSON格式字符串，包含按相关性排序的最相似节点
         """
         top_k = 1
-        # get all index names
-        result, _, _ = self._execute_cypher(cypher="SHOW INDEXES")
-        result = self._extract_keys(
-            obj=result,
-            keys_to_keep=["name"],
-        )
-        index_names = [r["name"] for r in result]
-
-        client_config = Neo4jClientConfig(
-            url=self.db_uri,
-            database=self.database,
-            username=self.user,
-            password=self.password,
-        )
-        neo4j_client = Neo4jClient(client_config)
-        neo4j_client.verify_connectivity()
+        indexs = self._get_indexs(keys_to_keep=["name", "type"])
+        index_names = [index["name"] for index in indexs if index["type"] == "VECTOR"]
 
         query_embedding = self.text_embedder.run(text=query)["embedding"]
 
@@ -136,13 +156,14 @@ class Neo4jTools(Toolkit):
         for index_name in index_names:
             try:
                 records.extend(
-                    neo4j_client.query_embeddings(
+                    self._neo4j_client.query_embeddings(
                         index=index_name,
                         top_k=top_k,
                         embedding=query_embedding,
                     )
                 )
-            except ClientError:
+            except ClientError as e:
+                log_error(e.message)
                 continue
         sorted_records = sorted(records, key=lambda x: x["score"], reverse=True)[:top_k]
         formatted_records, _, _ = self._format_record_json(data=sorted_records)
@@ -180,6 +201,14 @@ class Neo4jTools(Toolkit):
         if len(result_str) > 0 and result_str != "[]":
             return_str += f"Result:\n{result_str}"
         return return_str
+
+    def _get_indexs(self, keys_to_keep: List[str] = ["name"]) -> List[str]:
+        result, _, _ = self._execute_cypher(cypher="SHOW INDEXES")
+        indexes = self._extract_keys(
+            obj=result,
+            keys_to_keep=keys_to_keep,
+        )
+        return indexes
 
     def _execute_cypher(
         self, cypher: str, parameters=None

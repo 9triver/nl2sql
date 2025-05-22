@@ -1,8 +1,8 @@
 # nl2sql
 
-# 1 环境配置
+# 环境配置
 
-## 1.1 llm api
+## llm api
 
 将api key写入环境变量中, 例如:
 
@@ -13,11 +13,11 @@ export CHATGLM_API_KEY=111a***********************114pG
 ```
 
 > 在config.yaml的model中配置参数: 
-> - **api key的环境变量名称(api_key_name)** 
-> - **模型转发地址(base_url)**
-> - **模型名称(model_name)** .
+> - **api key的环境变量(api_key)** 
+> - **模型转发地址的环境变量(base_url)**
+> - **模型名称的环境变量(model_name)** .
 
-## 1.2 qdrant部署
+## qdrant部署
 
 1. 从Dockerhub下载最新的Qdrant镜像(仅需执行一次)：
 
@@ -48,19 +48,26 @@ docker stop qdrant_storage
 > 每次启动之前需先保证qdrant容器正在运行.
 
 
-## 1.3 neo4j数据库配置
+## neo4j数据库配置
 
 > 在config.yaml的database中配置即可
 
 
-## 启动命令
 
-### 命令行
+# 启动命令
+
+## 数据库嵌入
+> 给数据库中所有节点添加嵌入
+```bash
+python src/embed.py
+```
+
+## 命令行
 ```bash
 python src/cli.py
 ```
 
-### Gradio GUI
+## Gradio GUI
 ```bash
 python src/gui.py
 ```
@@ -68,7 +75,31 @@ python src/gui.py
  - http://localhost:7861
  - http://0.0.0.0:7861
 
-### Fastapi
+## Fastapi
 ```bash
 python src/web.py
+```
+
+
+# Docker
+## 镜像构建
+```bash
+docker-compose build
+```
+
+## 运行容器
+```bash
+docker-compose up -d
+```
+
+## 进入容器并运行
+```bash
+docker-compose exec nl2cypher /bin/bash
+
+python src/cli.py
+```
+
+## 停止容器
+```bash
+docker-compose stop nl2cypher
 ```

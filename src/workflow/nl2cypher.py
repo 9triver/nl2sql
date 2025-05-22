@@ -1,15 +1,12 @@
 import asyncio
-import collections.abc
 import os
-from types import GeneratorType
-from typing import Any, Callable, Dict, Iterator, List, Literal, Optional, Union, cast
-from uuid import uuid4
+from typing import Any, Dict, Iterator, List, Literal, Optional, Union
 
 from agno.memory.v2.memory import Memory
-from agno.memory.workflow import WorkflowMemory, WorkflowRun
+from agno.memory.workflow import WorkflowMemory
 from agno.run.team import TeamRunResponse
 from agno.storage.base import Storage
-from agno.utils.log import log_debug, log_error, log_info, log_warning
+from agno.utils.log import log_error, log_info
 from agno.workflow import RunResponse, Workflow
 
 from agent.reflector import Reflection, ReflectorAgent
@@ -147,79 +144,25 @@ class NL2CypherWorkflow(Workflow):
             log_error(f"Error generating initial response: {e!s}", exc_info=True)
             return TreeState(root=None, input=state_input)
 
-    def generate_candidates(
-        self, question: str, messages: List[str], num: int
-    ) -> List[str]:
-        """Generates multiple candidate Cypher queries through parallel execution.
-
-        Uses asynchronous tasks to generate potential Cypher query candidates based
-        on the most recent message. Implements error handling and fallback values
-        for failed generations.
-
-        Args:
-            question: Natural language input describing the user's question
-            messages: Conversation history containing natural language messages
-            num: Number of candidate queries to generate in parallel
-
-        Returns:
-            List of generated Cypher queries or error placeholders. Each entry will be:
-            - A valid Cypher query string if generation succeeds
-            - "Failed to generate candidate." if any error occurs
-        """
-        message = f"用户问题:{question}\n\n推理历史:\n{'\n'.join(messages)}"
-
-        async def _wrap_team_arun(message: str):
-            cypher_tree_team = get_cypher_tree_team()
-            return await cypher_tree_team.arun(message=message)
-
-        async def _agenerate_candidates():
-            tasks = [_wrap_team_arun(message) for _ in range(num)]
-            return await asyncio.gather(*tasks)
-
-        results = asyncio.run(_agenerate_candidates())
-        # results = []
-        # for _ in range(num):
-        #     cypher_tree_team = get_cypher_tree_team()
-        #     results.append(cypher_tree_team.run(message=message))
-
-        candidates = [
-            str(result.content).strip()
-            if not isinstance(result, Exception)
-            else "Failed to generate candidate."
-            for result in results
-        ]
-        return candidates
-
     def expand(self, question: str, state: TreeState, num: int) -> TreeState:
-        """Expand the search tree by generating and evaluating new Cypher query candidates.
-
-        Args:
-            question: Natural language input describing the user's question
-            state: Current state of the exploration tree containing query candidates
-            num: Number of new candidates to generate and evaluate (must be > 0)
-
-        Returns:
-            Updated tree state with new candidate nodes added to the best existing branch
-        """
         root = state.root
         best_candidate: Node = root.best_child if root.children else root
-        messages = best_candidate.get_trajectory()
+        reason_trace = "\n".join(best_candidate.get_trajectory())
+        message = f"用户问题:{question}\n\n推理历史:\n{reason_trace}"
 
-        # Generate N candidates
-        new_candidates = self.generate_candidates(
-            question=question, messages=messages, num=num
-        )
-
-        # Reflect on each candidate
-        # tasks = [
-        #     self.reflection_chain(input=state.input, candidate=candidate)
-        #     for candidate in new_candidates
-        # ]
-        # reflections = asyncio.run(asyncio.gather(*tasks))
-        reflections = []
-        for candidate in new_candidates:
+        async def _generate_single_candidate():
+            """Generate One candidate and Reflect on it"""
+            cypher_tree_team = get_cypher_tree_team()
+            result = await cypher_tree_team.arun(message=message)
+            candidate = str(result.content).strip()
             reflection = self.reflection_chain(input=state.input, candidate=candidate)
-            reflections.append(reflection)
+            return candidate, reflection
+
+        async def _generate_candidates():
+            tasks = [_generate_single_candidate() for _ in range(num)]
+            return await asyncio.gather(*tasks)
+
+        results = asyncio.run(_generate_candidates())
 
         # Grow tree
         child_nodes = [
@@ -228,7 +171,7 @@ class NL2CypherWorkflow(Workflow):
                 parent=best_candidate,
                 reflection=reflection,
             )
-            for candidate, reflection in zip(new_candidates, reflections)
+            for candidate, reflection in results
         ]
         log_info(f"expand_nodes:{child_nodes}")
         best_candidate.children.extend(child_nodes)
@@ -279,103 +222,3 @@ class NL2CypherWorkflow(Workflow):
 
         result = best_trajectory[-1]
         return result
-
-    def run_workflow(self, **kwargs: Any):
-        """Run the Workflow"""
-
-        # Set mode, debug, workflow_id, session_id, initialize memory
-        self.set_storage_mode()
-        self.set_debug()
-        self.set_workflow_id()
-        self.set_session_id()
-        self.initialize_memory()
-
-        # Create a run_id
-        self.run_id = str(uuid4())
-
-        # Set run_input, run_response
-        self.run_input = kwargs
-        self.run_response = RunResponse(
-            run_id=self.run_id, session_id=self.session_id, workflow_id=self.workflow_id
-        )
-
-        # Read existing session from storage
-        self.read_from_storage()
-
-        # Update the session_id for all Agent instances
-        self.update_agent_session_ids()
-
-        log_debug(f"Workflow Run Start: {self.run_id}", center=True)
-        try:
-            self._subclass_run = cast(Callable, self._subclass_run)
-            result = self._subclass_run(**kwargs)
-        except Exception as e:
-            log_error(f"Workflow.run() failed: {e}")
-            raise e
-
-        # The run_workflow() method handles both Iterator[RunResponse] and RunResponse
-        # Case 1: The run method returns an Iterator[RunResponse]
-        if isinstance(result, (GeneratorType, collections.abc.Iterator)):
-            # Initialize the run_response content
-            self.run_response.content = ""
-
-            def result_generator():
-                self.run_response = cast(RunResponse, self.run_response)
-                if isinstance(self.memory, WorkflowMemory):
-                    self.memory = cast(WorkflowMemory, self.memory)
-                elif isinstance(self.memory, Memory):
-                    self.memory = cast(Memory, self.memory)
-
-                for item in result:
-                    if isinstance(item, RunResponse):
-                        # Update the run_id, session_id and workflow_id of the RunResponse
-                        item.run_id = self.run_id
-                        item.session_id = self.session_id
-                        item.workflow_id = self.workflow_id
-
-                        # Update the run_response with the content from the result
-                        if item.content is not None and isinstance(item.content, str):
-                            self.run_response.content += item.content
-                    yield item
-
-                # Add the run to the memory
-                if isinstance(self.memory, WorkflowMemory):
-                    self.memory.add_run(
-                        WorkflowRun(input=self.run_input, response=self.run_response)
-                    )
-                elif isinstance(self.memory, Memory):
-                    self.memory.add_run(
-                        session_id=self.session_id, run=self.run_response
-                    )  # type: ignore
-                # Write this run to the database
-                self.write_to_storage()
-                log_debug(f"Workflow Run End: {self.run_id}", center=True)
-
-            return result_generator()
-        # Case 2: The run method returns a RunResponse
-        elif isinstance(result, RunResponse):
-            # Update the result with the run_id, session_id and workflow_id of the workflow run
-            result.run_id = self.run_id
-            result.session_id = self.session_id
-            result.workflow_id = self.workflow_id
-
-            # Update the run_response with the content from the result
-            if result.content is not None and isinstance(result.content, str):
-                self.run_response.content = result.content
-
-            # Add the run to the memory
-            if isinstance(self.memory, WorkflowMemory):
-                self.memory.add_run(
-                    WorkflowRun(input=self.run_input, response=self.run_response)
-                )
-            elif isinstance(self.memory, Memory):
-                self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
-            # Write this run to the database
-            self.write_to_storage()
-            log_debug(f"Workflow Run End: {self.run_id}", center=True)
-            return result
-        else:
-            log_warning(
-                f"Workflow.run() should only return RunResponse objects, got: {type(result)}"
-            )
-            return None
